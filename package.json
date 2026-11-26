@@ -1,0 +1,58 @@
+{
+  "name": "witness",
+  "version": "0.1.0",
+  "description": "Test a web app through its real UI from an MCP client: an app's page objects and tools on a shared engine, with case files, a runner, a results store and a viewer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sshdaemon/witness.git"
+  },
+  "files": [
+    "src",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./proxy": "./src/proxy.ts",
+    "./cli": "./src/cli.ts",
+    "./ui": "./src/ui/server.ts",
+    "./read": "./src/read/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.check.json",
+    "test": "tsx --test test/*.test.ts",
+    "lint": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "check": "npm run -s lint && npm run -s format:check && npm run -s typecheck && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "^2.2.0",
+    "@types/node": "^24.19.0",
+    "lefthook": "2.1.14",
+    "oxfmt": "0.64.0",
+    "oxlint": "1.79.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.2.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

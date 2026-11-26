@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>witness results</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="#/" aria-label="Results home">
+        <span class="mark" aria-hidden="true"></span>
+        <span>witness results</span>
+      </a>
+      <nav class="nav">
+        <a href="#/">Tickets and runs</a>
+        <a href="#/evidence">Evidence</a>
+        <span class="live" id="live" title="The page refreshes every 5 seconds">live</span>
+      </nav>
+    </header>
+    <main id="app" aria-live="polite"></main>
+    <div id="lightbox" class="lightbox" hidden>
+      <img id="lightbox-img" alt="Screenshot" />
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

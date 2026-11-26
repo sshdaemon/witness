@@ -1,0 +1,14 @@
+# Checks only: a hook that rewrote staged files would commit something other than the reviewed diff.
+pre-commit:
+  jobs:
+    - name: oxlint
+      glob: '*.{ts,js,mjs,cjs}'
+      run: ./node_modules/.bin/oxlint --deny-warnings --no-error-on-unmatched-pattern {staged_files}
+
+    - name: oxfmt
+      glob: '*.{ts,js,mjs,cjs,json,md,yml,yaml,css,html}'
+      run: ./node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern {staged_files}
+
+    - name: typecheck
+      glob: '*.ts'
+      run: npm run -s typecheck

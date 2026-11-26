@@ -1,0 +1,110 @@
+{
+  "product": {
+    "ok": true,
+    "page": {
+      "kind": "product",
+      "url": "/products/6e760173-bcab-4441-a86a-f09d5afe2ea2/stock",
+      "params": {
+        "productId": "6e760173-bcab-4441-a86a-f09d5afe2ea2"
+      }
+    },
+    "data": {
+      "product": "q7tz2k AB-12 run 3 mug",
+      "variants": [
+        {
+          "name": "Default",
+          "listed": "yes",
+          "backorder": "allowed",
+          "stock": [
+            {
+              "warehouse": "North",
+              "updated": "Mon 2 Nov 2026",
+              "left": "0 in stock"
+            }
+          ]
+        }
+      ]
+    },
+    "notices": [],
+    "errors": []
+  },
+  "order": {
+    "ok": true,
+    "page": {
+      "kind": "orders",
+      "url": "/orders/4710263",
+      "params": {
+        "reference": "4710263"
+      }
+    },
+    "data": {
+      "reference": "4710263",
+      "product": "q7tz2k AB-12 run 3 teapot",
+      "type": "Gift wrapped",
+      "payment": "CARD",
+      "status": "packing",
+      "orderNotes": [],
+      "items": [
+        {
+          "name": "q7tz2k teapot",
+          "variant": "Blue",
+          "quantity": 2
+        }
+      ],
+      "placedAs": "buyer",
+      "giftWrap": false,
+      "couponApplied": null
+    },
+    "notices": [],
+    "errors": []
+  },
+  "formatRefused": {
+    "ok": false,
+    "code": "FORMAT_NOT_AVAILABLE",
+    "message": "\"Gift card\" is not an export format here.",
+    "hint": "Try CSV or JSON"
+  },
+  "export": {
+    "ok": true,
+    "page": {
+      "kind": "products",
+      "url": "/reports/monthly"
+    },
+    "data": {
+      "id": "b33dc10e-03e7-489b-b098-b322a6bccdf4",
+      "title": "q7tz2k AB-12 run 3 teapot",
+      "type": "Monthly sales",
+      "formatsOffered": ["CSV", "JSON"],
+      "period": "2026-10",
+      "filename": "monthly-sales-2026-10.csv",
+      "headers": ["Order reference", "Product", "Quantity", "Order total", "Order date"],
+      "rowCount": 1,
+      "rows": [
+        {
+          "Order reference": "4710263",
+          "Quantity": "2",
+          "Order total": "24.00"
+        }
+      ]
+    },
+    "notices": [],
+    "errors": []
+  },
+  "couponRefused": {
+    "ok": true,
+    "page": {
+      "kind": "admin",
+      "url": "/discounts?product=614fdc5e-eae8-4d98-8266-f178fc63c330",
+      "params": {
+        "productId": "614fdc5e-eae8-4d98-8266-f178fc63c330"
+      }
+    },
+    "data": {
+      "reason": "This coupon clashes with an active one",
+      "toast": "Could not save. This coupon clashes with an active one",
+      "dialogStillOpen": true
+    },
+    "notices": [],
+    "errors": []
+  }
+}
