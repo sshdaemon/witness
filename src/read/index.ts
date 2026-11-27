@@ -61,6 +61,7 @@ export function runs(q: RunFilter = {}) {
   const sql = `
     SELECT r.id, ${col(cols, 'branch', 'r.')}, r.env, ${col(cols, 'kind', 'r.')},
       ${col(cols, 'ticket', 'r.')}, ${col(cols, 'run_number', 'r.')}, ${col(cols, 'label', 'r.')},
+      ${col(cols, 'lane', 'r.')},
       r.run_tag, r.started_at, r.finished_at, r.verdict, r.summary, r.first_failure_step,
       ${col(cols, 'app_versions', 'r.')},
       (SELECT COUNT(*) FROM steps s WHERE s.run_id = r.id) AS steps,
@@ -252,6 +253,19 @@ const caseResult = (r: ResultRow) => ({
   finishedAt: r.finished_at,
 });
 
+/** Each ticket's title, by its lower-cased id. */
+const titles = (d: DatabaseSync) =>
+  new Map(
+    hasTable(d, 'ticket_titles')
+      ? (
+          d.prepare('SELECT ticket, title FROM ticket_titles').all() as {
+            ticket: string;
+            title: string;
+          }[]
+        ).map(t => [t.ticket.toLowerCase(), t.title])
+      : [],
+  );
+
 /**
  * Every ticket with runs or case results, the most recently tested first. Runs from before every
  * run had a ticket come together in one entry whose ticket is null.
@@ -334,12 +348,14 @@ export function tickets() {
     if (run !== e.lastResultRun) [e.lastResultRun, e.lastResults] = [run, []];
     e.lastResults.push(r.result);
   }
+  const titleOf = titles(d);
   return [...byKey.values()]
     .map(e => {
       const counts: Record<string, number> = {};
       for (const r of e.current.values()) counts[r.result] = (counts[r.result] ?? 0) + 1;
       return {
         ticket: e.ticket,
+        title: e.ticket === null ? null : (titleOf.get(e.ticket.toLowerCase()) ?? null),
         runs: e.runs.size,
         cases: e.current.size,
         counts,
@@ -467,6 +483,7 @@ export function ticketDetail(ticket: string) {
   });
   return {
     ticket: results.at(-1)?.ticket ?? ticket,
+    title: titles(d).get(ticket.toLowerCase()) ?? null,
     runs: [...columnsById].map(([id, { first, lanes }]) => ({
       id,
       runNumber: first.run_number,
@@ -503,7 +520,9 @@ export function caseDetail(ticket: string, caseId: string, links: Links = FILES)
     )
     .all(ticket, caseId) as ResultRow[];
   if (!def && results.length === 0) return undefined;
-  const runOf = d.prepare('SELECT id, label, env, started_at, verdict FROM runs WHERE id = ?');
+  const runOf = d.prepare(
+    'SELECT id, label, env, started_at, finished_at, verdict, lane FROM runs WHERE id = ?',
+  );
   const shotsOf = d.prepare(
     `
       SELECT step_seq, path FROM artifacts

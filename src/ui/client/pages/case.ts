@@ -7,9 +7,10 @@ import {
   crumbs,
   dur,
   empty,
-  fmtTime,
-  ICON,
-  judged,
+  dot,
+  ranAt,
+  resultCell,
+  word,
   plural,
   runHref,
   shortArgs,
@@ -79,6 +80,12 @@ function definition(def: CaseDetail['definition']) {
   </sl-card>`;
 }
 
+/** A case's run by its number, with its lane when it ran in one. */
+const runNo = (h: CaseRun) =>
+  h.runNumber
+    ? `Run #${h.runNumber}${h.run?.lane ? ` lane ${h.run.lane}` : ''}`
+    : (h.run?.label ?? `Run ${h.runId}`);
+
 export type CaseActions = { present: (slides: Slide[], index: number, title: string) => void };
 
 /** A case: what it checks, a run picker, the chosen run's result and steps, and presentation. */
@@ -87,7 +94,7 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
   const title = `${d.caseId}${def?.title ? ` · ${def.title}` : ''}`;
   const newestFirst = d.history.toReversed();
   const slides = slidesOf(steps);
-  const deckTitle = `${title}${chosen?.run?.label ? ` · ${chosen.run.label}` : ''}`;
+  const deckTitle = `${title}${chosen?.runNumber ? ` · run #${chosen.runNumber}` : ''}`;
   const open = (index: number) => act.present(slides, index, deckTitle);
   const slideAt = (seq: number, frame: number) =>
     Math.max(
@@ -95,20 +102,23 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
       slides.findIndex(x => x.step.seq === seq && x.frame === frame),
     );
 
-  const picker = newestFirst.map(h => {
-    const name = (h.run?.label ?? (h.runNumber ? `run ${h.runNumber}` : h.runId)).replace(
-      `${d.ticket} `,
-      '',
-    );
-    return html`<sl-button
-      size="small"
-      pill
-      variant=${h === chosen ? 'primary' : 'default'}
-      href=${caseHref(d.ticket, d.caseId, h.runId)}
-      title=${h.run ? fmtTime(h.run.started_at) : 'removed by retention'}
-      >${ICON[h.result] ?? ''} ${name}</sl-button
-    >`;
-  });
+  // Every run of the case, newest first: its number, result, when it ran and how long it took.
+  const picker = html`<nav class="run-list" aria-label="Runs of this case">
+    ${newestFirst.map(
+      h =>
+        html`<a
+          class="run-item ${h === chosen ? 'on' : ''}"
+          href=${caseHref(d.ticket, d.caseId, h.runId)}
+          aria-current=${h === chosen ? 'true' : 'false'}
+        >
+          ${dot(h.result, word(h.result))}
+          <span class="no">${runNo(h).replace(/^Run /, '')}</span>
+          <span class="muted"
+            >${h.run ? ranAt(h.run.started_at, h.run.finished_at) : 'removed by retention'}</span
+          >
+        </a>`,
+    )}
+  </nav>`;
 
   const runCard = (h: CaseRun) =>
     html`<sl-card class="run-result">
@@ -116,9 +126,11 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
         <span>
           ${
             h.run
-              ? html`<a href=${runHref(h.runId)}>${h.run.label ?? h.runId}</a>
-                  <span class="muted">· ${h.run.env} · ${fmtTime(h.run.started_at)}</span>`
-              : html`run ${h.runNumber ?? '?'} <sl-tag size="small">removed</sl-tag>`
+              ? html`<a href=${runHref(h.runId)}>${runNo(h)}</a>
+                  <span class="muted"
+                    >· ${h.run.env} · ${ranAt(h.run.started_at, h.run.finished_at)}</span
+                  >`
+              : html`${runNo(h)} <sl-tag size="small">removed</sl-tag>`
           }
         </span>
         <span class="right">
@@ -131,7 +143,7 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
                 >`
               : nothing
           }
-          ${judged(h)} ${verdict(h.result)}
+          ${resultCell(h)}
         </span>
       </div>
       ${h.actual ? html`<p class="actual">${h.actual}</p>` : nothing}
@@ -189,15 +201,17 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
       [d.caseId, null],
     ])}
     <div class="head">
-      <h1>${title}</h1>
+      <div class="titles">
+        <div class="tid">${d.ticket} · ${d.caseId}</div>
+        <h1>${def?.title ?? d.caseId}</h1>
+      </div>
       ${newestFirst[0] ? verdict(newestFirst[0].result) : nothing}
     </div>
     ${definition(def)}
     ${
       chosen
         ? html`<h2>Runs</h2>
-            <div class="run-picker" role="group" aria-label="Pick a run">${picker}</div>
-            ${runCard(chosen)}
+            ${picker} ${runCard(chosen)}
             ${
               steps.length > 0
                 ? html`<h2>Steps in this run</h2>

@@ -67,8 +67,19 @@ export const buildsLine = (builds: Builds | null) =>
     .map(([n, b]) => `${n} ${buildLabel(b)}`)
     .join(' · ');
 
-export const runName = (r: { label: string | null; run_number?: number | null }) =>
-  r.label || (r.run_number ? `run ${r.run_number}` : '');
+/** A run by its number, "#3", with its lane when it ran in one; a run with no number by label. */
+export const runName = (r: {
+  label: string | null;
+  run_number?: number | null;
+  lane?: number | null;
+}) => (r.run_number ? `#${r.run_number}${r.lane ? ` lane ${r.lane}` : ''}` : (r.label ?? ''));
+
+/** When a run started and how long it took: "27 Nov, 12:18 · 3 min 27 s". */
+export const ranAt = (started: string | null | undefined, finished: string | null | undefined) => {
+  if (!started) return '';
+  const took = finished ? dur(new Date(finished).getTime() - new Date(started).getTime()) : '';
+  return `${fmtTime(started)} · ${took || 'still running'}`;
+};
 
 export const shortArgs = (args: Record<string, unknown> | null) =>
   Object.entries(args ?? {})
@@ -158,13 +169,34 @@ export const checkList = (checks: Check[]) =>
 
 /** Who decided the result: the checks alone, or the session, which may have overruled them. */
 export const judged = (r: Pick<CaseResult, 'judgedBy' | 'checksResult' | 'result'>) => {
-  if (r.judgedBy === 'checks') return html`<sl-tag size="small">by checks</sl-tag>`;
+  if (r.judgedBy === 'checks') return mark('clipboard-check', 'Judged by its checks', '');
   if (r.checksResult && r.checksResult !== r.result)
-    return html`<sl-tag size="small" variant="warning" title="The checks gave ${r.checksResult}"
-      >overrode checks (${word(r.checksResult)})</sl-tag
-    >`;
+    return mark(
+      'exclamation-triangle',
+      `The session overrode its checks, which gave ${word(r.checksResult)}`,
+      'warn',
+    );
   return nothing;
 };
+
+/** A small icon that explains itself on hover. */
+const mark = (icon: string, text: string, tone: string) =>
+  html`<sl-tooltip content=${text}
+    ><sl-icon class="mark ${tone}" name=${icon} label=${text}></sl-icon
+  ></sl-tooltip>`;
+
+/** A case's result on one line: the verdict, who judged it and whether its build is older. */
+export const resultCell = (
+  r: Pick<CaseResult, 'judgedBy' | 'checksResult' | 'result'>,
+  olderBuild?: string,
+) =>
+  html`<span class="result"
+    >${verdict(r.result)}${judged(r)}${
+      olderBuild
+        ? mark('clock-history', `Last ran on an older build: ${olderBuild}`, 'warn')
+        : nothing
+    }</span
+  >`;
 
 // "ok: x; FAIL: y | note" is how sessions write checks in run_finish.
 const splitSummary = (text: string) =>
@@ -262,9 +294,9 @@ export const runsTable = (list: RunRow[]) =>
                   @click=${() => go(runHref(r.id))}
                   @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && go(runHref(r.id))}
                 >
-                  <td><a href=${runHref(r.id)}>${runName(r) || r.ticket || 'run'}</a></td>
+                  <td class="run-no"><a href=${runHref(r.id)}>${runName(r) || 'run'}</a></td>
                   <td>${verdict(r.verdict)}</td>
-                  <td class="num" title=${fmtTime(r.started_at)}>${ago(r.started_at)}</td>
+                  <td class="num" title=${ago(r.started_at)}>${fmtTime(r.started_at)}</td>
                   <td>${r.env}</td>
                   <td class="served">${served(r.app_versions)}</td>
                   <td class="num">

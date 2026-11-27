@@ -11,13 +11,20 @@ process.env.WITNESS_RESULTS_DIR = mkdtempSync(join(tmpdir(), 'witness-ticket-run
 
 const { Recorder } = await import('../src/mcp/recorder.js');
 const { buildReport } = await import('../src/mcp/report.js');
-const { listRuns, store } = await import('../src/mcp/store.js');
+const { listRuns, store, titleWithoutTicket } = await import('../src/mcp/store.js');
 const { createViewer } = await import('../src/ui/server.js');
 
 const builds = { store: { branch: 'feat/x', sha: 'abc1234', dirty: true } };
 const run = (
   id: string,
-  about: { ticket?: string; branch?: string; kind?: string; batch?: string; lane?: number },
+  about: {
+    ticket?: string;
+    title?: string;
+    branch?: string;
+    kind?: string;
+    batch?: string;
+    lane?: number;
+  },
   verdict?: 'PASS' | 'FAIL',
   summary = '',
 ) => {
@@ -28,13 +35,13 @@ const run = (
 
 run(
   '20260101000001-aaa',
-  { ticket: 'AB-1', branch: 'feat/x' },
+  { ticket: 'AB-1', title: 'AB-1 old title', branch: 'feat/x' },
   'FAIL',
   'ok: no filter; FAIL: legacy id',
 );
 run(
   '20260101000002-bbb',
-  { ticket: 'ab-1', branch: 'feat/x' },
+  { ticket: 'ab-1', title: 'ab-1 stock limit', branch: 'feat/x' },
   'PASS',
   'ok: no filter; ok: legacy id',
 );
@@ -145,6 +152,15 @@ describe('runs by ticket', () => {
       'themes/../../package.json',
     ])
       assert.equal((await fetch(`${base}/vendor/shoelace/${path}`)).status, 404, path);
+  });
+
+  it("keeps each ticket's newest title without its id, in the list and the detail", async () => {
+    const tickets = await json<(Ticket & { title: string | null })[]>('/api/tickets');
+    assert.equal(tickets.find(t => t.ticket?.toLowerCase() === 'ab-1')?.title, 'Stock limit');
+    assert.equal(tickets.find(t => t.ticket === 'TOOL-search')?.title, null);
+    const detail = await json<{ title: string | null }>('/api/tickets/AB-1');
+    assert.equal(detail.title, 'Stock limit');
+    assert.equal(titleWithoutTicket('AB-1', 'iOS crash on login'), 'iOS crash on login');
   });
 
   it('no longer serves topics', async () => {

@@ -17,7 +17,11 @@ const PAGE_SIZE = 15;
 const ticketRow = (t: Ticket & { ticket: string }) =>
   html`<li>
     <a class="ticket-row" href=${ticketHref(t.ticket)}>
-      <span class="tk">${t.ticket}</span>
+      <span class="tk"
+        ><span class="id">${t.ticket}</span>${
+          t.title ? html`<span class="title">${t.title}</span>` : nothing
+        }</span
+      >
       <span class="cases"
         >${
           t.cases > 0

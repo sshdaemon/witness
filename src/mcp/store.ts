@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS case_results (
 );
 CREATE INDEX IF NOT EXISTS case_results_case ON case_results (ticket, case_id);
 CREATE TABLE IF NOT EXISTS ticket_runs (ticket TEXT PRIMARY KEY, last_run INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS ticket_titles (
+  ticket TEXT COLLATE NOCASE PRIMARY KEY, title TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 `;
 
 /** Made after the migration, as an older runs table has no ticket column until then. */
@@ -98,7 +101,7 @@ ${EVIDENCE_SCHEMA}
 `;
 
 /** Bumped with every migration below; PRAGMA user_version records how far a store has come. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const columns = (d: DatabaseSync, table: string) =>
   (d.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(c => c.name);
@@ -163,6 +166,54 @@ function migrate(d: DatabaseSync, from: number) {
       `,
     );
   }
+  // v4: tickets keep their title. Runs used to carry a topic, usually the ticket id and its title,
+  // so each ticket starts with its newest topic, the id taken off the front.
+  if (from < 4) {
+    d.exec(CASES_SCHEMA);
+    const topics = columns(d, 'runs').includes('topic')
+      ? (d
+          .prepare(
+            `
+              SELECT ticket, TRIM(topic) AS topic, MAX(started_at) AS at FROM runs
+              WHERE ticket IS NOT NULL AND TRIM(COALESCE(topic, '')) <> ''
+              GROUP BY ulower(ticket)
+            `,
+          )
+          .all() as { ticket: string; topic: string; at: string }[])
+      : [];
+    const add = d.prepare(
+      'INSERT OR IGNORE INTO ticket_titles (ticket, title, updated_at) VALUES (?, ?, ?)',
+    );
+    for (const t of topics) {
+      const title = titleWithoutTicket(t.ticket, t.topic);
+      if (title) add.run(t.ticket, title, t.at);
+    }
+  }
+}
+
+/**
+ * "AB-12 stock limit" becomes "Stock limit": the id is shown next to the title already. A title
+ * given without the id is kept as given.
+ */
+export function titleWithoutTicket(ticket: string, title: string): string {
+  const id = ticket.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const given = title.trim();
+  const rest = given.replace(new RegExp(`^${id}(?![\\w-])[\\s:·–—-]*`, 'i'), '').trim();
+  return rest === given ? rest : rest.replace(/^\p{Ll}/u, c => c.toUpperCase());
+}
+
+/** Records the ticket's title; the newest one given wins. */
+export function setTicketTitle(ticket: string, title: string) {
+  const clean = titleWithoutTicket(ticket, title);
+  if (!clean) return;
+  store()
+    .prepare(
+      `
+        INSERT INTO ticket_titles (ticket, title, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT (ticket) DO UPDATE SET title = excluded.title, updated_at = excluded.updated_at
+      `,
+    )
+    .run(ticket, clean, new Date().toISOString());
 }
 
 /**

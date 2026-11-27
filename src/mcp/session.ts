@@ -63,6 +63,7 @@ export class Session implements AppSession {
     /** Keep the browser traces even when the run passes. */
     readonly trace = false,
     about: {
+      title?: string;
       branch?: string;
       kind?: string;
       ticket?: string;
@@ -363,6 +364,7 @@ export async function startSession(opts: {
   env?: EnvName;
   headed?: boolean;
   trace?: boolean;
+  title?: string;
   branch?: string;
   kind?: string;
   label?: string;
@@ -386,6 +388,7 @@ export async function startSession(opts: {
     opts.headed ?? false,
     opts.trace ?? false,
     {
+      title: opts.title,
       branch: opts.branch,
       kind: opts.kind,
       ticket: opts.ticket,

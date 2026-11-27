@@ -13,7 +13,7 @@ import {
   type Check,
   type JudgedBy,
 } from './cases.js';
-import { runDir, store, type Verdict } from './store.js';
+import { runDir, setTicketTitle, store, type Verdict } from './store.js';
 
 const OBSERVATION_CAP = 4000;
 
@@ -49,6 +49,7 @@ export class Recorder {
     env: string,
     runTag: string,
     about: {
+      title?: string;
       branch?: string;
       kind?: string;
       ticket?: string;
@@ -88,6 +89,7 @@ export class Recorder {
           about.batch ? (about.lane ?? null) : null,
         );
       if (about.ticket) this.takeTicket(about.ticket, about.firstRun);
+      if (about.ticket && about.title) setTicketTitle(about.ticket, about.title);
     });
   }
 

@@ -108,6 +108,7 @@ export async function runCaseFile(
 
   const started = await call('session_start', {
     ticket: file.ticket,
+    ...(file.title ? { title: file.title } : {}),
     kind: 'test',
     ...(opts.env ? { env: opts.env } : {}),
     ...((opts.branch ?? file.branch) ? { branch: opts.branch ?? file.branch } : {}),

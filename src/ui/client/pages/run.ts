@@ -34,7 +34,7 @@ export function runView(d: RunDetail, act: RunActions) {
   const ms = runMs(r);
   const failed = d.steps.filter(s => !s.ok).length;
   const slides = slidesOf(d.steps);
-  const title = runName(r) || r.ticket || 'Run';
+  const title = r.run_number ? `Run ${runName(r)}` : r.label || 'Run';
   const open = (seq: number, frame: number) =>
     act.present(
       slides,

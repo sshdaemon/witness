@@ -51,6 +51,17 @@ export function buildServer(): McpServer {
           confused with yours and screenshots say what they show. Call before
           login.`,
       input: z.object({
+        title: z
+          .string()
+          .trim()
+          .min(3)
+          .max(200)
+          .optional()
+          .describe(
+            prose`
+              The ticket's title as the tracker shows it, for the viewer. Kept per ticket; the
+              newest one given wins.`,
+          ),
         branch: z.string().max(120).optional().describe('The branch under test, for the record.'),
         kind: z
           .enum(['test', 'tool'])
@@ -102,9 +113,10 @@ export function buildServer(): McpServer {
         lane: z.number().int().min(1).max(9).optional().describe("This run's lane in its batch."),
       }),
     },
-    async ({ env, branch, kind, headed, trace, label, ticket, firstRun, batch, lane }) => {
+    async ({ env, title, branch, kind, headed, trace, label, ticket, firstRun, batch, lane }) => {
       const s = await startSession({
         env: env as EnvName | undefined,
+        title,
         branch,
         kind,
         headed,

@@ -28,6 +28,7 @@ export type CaseResult = {
 
 export type Ticket = {
   ticket: string | null;
+  title: string | null;
   runs: number;
   cases: number;
   counts: Partial<Record<Verdict, number>>;
@@ -41,6 +42,7 @@ export type RunRow = {
   ticket: string | null;
   run_number: number | null;
   label: string | null;
+  lane: number | null;
   env: string;
   branch: string | null;
   kind: string | null;
@@ -58,6 +60,7 @@ export type Lane = { id: string; lane: number | null; verdict: Verdict | null; p
 
 export type TicketDetail = {
   ticket: string;
+  title: string | null;
   runs: {
     id: string;
     runNumber: number | null;
@@ -78,7 +81,14 @@ export type TicketDetail = {
 };
 
 export type CaseRun = CaseResult & {
-  run: { id: string; label: string | null; env: string | null; started_at: string } | null;
+  run: {
+    id: string;
+    label: string | null;
+    env: string | null;
+    started_at: string;
+    finished_at: string | null;
+    lane: number | null;
+  } | null;
   earlierVersion: boolean;
   app_versions: Builds | null;
   screenshots: { step: number; url: string; frame: boolean }[];
@@ -128,11 +138,7 @@ export type Step = {
 };
 
 export type RunDetail = {
-  run: RunRow & {
-    kind: string | null;
-    batch_id: string | null;
-    lane: number | null;
-  };
+  run: RunRow & { kind: string | null; batch_id: string | null };
   steps: Step[];
   artifacts: {
     stepSeq: number | null;

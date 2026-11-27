@@ -88,6 +88,7 @@ A ticket's test cases live in one JSON file, `<name>-cases.json`, which the runn
 ```json
 {
   "ticket": "AB-12",
+  "title": "Stock limit on the product page",
   "env": { "local": { "storeId": "s-local" }, "staging": { "storeId": "s-staging" } },
   "setup": [
     ["login", { "actor": "seller" }],

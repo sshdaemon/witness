@@ -71,6 +71,8 @@ const caseSchema = z
 export const caseFileSchema = z
   .object({
     ticket: z.string().min(2),
+    /** The ticket's title, shown by the viewer. */
+    title: z.string().min(3).max(200).optional(),
     branch: z.string().max(120).optional(),
     env: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     /** The logins every run (each lane its own browser) makes first. */

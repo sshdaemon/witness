@@ -55,10 +55,9 @@ describe('version 1 store', () => {
   it('gives runs a ticket, label, number, batch and lane, and keeps its runs', () => {
     for (const c of ['ticket', 'label', 'run_number', 'batch_id', 'lane'])
       assert.ok(names('runs').includes(c), c);
-    assert.equal(SCHEMA_VERSION, 3);
     assert.equal(
       (store().prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      3,
+      SCHEMA_VERSION,
     );
     assert.deepEqual(
       listRuns({}).map(r => (r as { id: string }).id),
