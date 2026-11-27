@@ -3,25 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>witness results</title>
+    <title>witness</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="stylesheet" href="/vendor/shoelace/themes/light.css" />
+    <link rel="stylesheet" href="/vendor/shoelace/themes/dark.css" />
     <link rel="stylesheet" href="/app.css" />
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
     <header class="top">
-      <a class="brand" href="#/" aria-label="Results home">
-        <span class="mark" aria-hidden="true"></span>
-        <span>witness results</span>
+      <a class="brand" href="#/" aria-label="witness, all tickets">
+        <img class="logo" src="/logo.png" alt="" width="36" height="36" />
+        <span>witness</span>
       </a>
       <nav class="nav">
-        <a href="#/">Tickets and runs</a>
+        <a href="#/">Tickets</a>
         <a href="#/evidence">Evidence</a>
         <span class="live" id="live" title="The page refreshes every 5 seconds">live</span>
       </nav>
     </header>
-    <main id="app" aria-live="polite"></main>
-    <div id="lightbox" class="lightbox" hidden>
-      <img id="lightbox-img" alt="Screenshot" />
-    </div>
-    <script src="/app.js" defer></script>
+    <main><witness-app aria-live="polite"></witness-app></main>
+    <witness-present></witness-present>
   </body>
 </html>

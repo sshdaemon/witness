@@ -4,7 +4,7 @@ import { existsSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { DB_PATH, EVIDENCE_DIR, fromStored, runDir } from '../paths.js';
-import { registerFunctions } from '../mcp/store.js';
+import { registerFunctions, verdictOfResults } from '../mcp/store.js';
 import { buildMap, otherBuild } from '../runner/missing.js';
 import type { LedgerResult, LedgerRun } from '../ledger/qaMd.js';
 
@@ -263,7 +263,10 @@ export function tickets() {
   const results = d.prepare('SELECT * FROM case_results ORDER BY finished_at').all() as ResultRow[];
   const runRows = d
     .prepare(
-      `SELECT id, ticket, started_at, verdict, ${col(cols, 'kind')} FROM runs ORDER BY started_at`,
+      `
+        SELECT id, ticket, started_at, verdict, ${col(cols, 'kind')}, run_number FROM runs
+        ORDER BY started_at
+      `,
     )
     .all() as {
     id: string;
@@ -271,14 +274,22 @@ export function tickets() {
     started_at: string;
     verdict: string | null;
     kind: string | null;
+    run_number: number | null;
   }[];
   type Entry = {
     ticket: string | null;
     runs: Set<string>;
     latest: string;
-    verdict: string | null;
+    /** The newest run, its lanes taken together: its number (or id) and its lanes' verdicts. */
+    lastRun: string;
+    lastVerdicts: (string | null)[];
     tool: boolean;
     current: Map<string, ResultRow>;
+    /** Whether any of its runs is still in the store; retention removes old ones. */
+    kept: boolean;
+    /** With every run removed: the newest run's key and its cases' results. */
+    lastResultRun: string;
+    lastResults: string[];
   };
   const byKey = new Map<string, Entry>();
   const entry = (ticket: string | null) => {
@@ -291,9 +302,13 @@ export function tickets() {
           ticket,
           runs: new Set(),
           latest: '',
-          verdict: null,
+          lastRun: '',
+          lastVerdicts: [],
           tool: true,
           current: new Map(),
+          kept: false,
+          lastResultRun: '',
+          lastResults: [],
         }),
       );
     return e;
@@ -301,8 +316,11 @@ export function tickets() {
   for (const r of runRows) {
     const e = entry(r.ticket);
     e.runs.add(r.id);
-    // ordered by start, so the last run wins
-    e.verdict = r.verdict;
+    // Ordered by start, so the last run wins; the lanes of a batch share its number.
+    const key = r.run_number == null ? r.id : `#${r.run_number}`;
+    if (key !== e.lastRun) [e.lastRun, e.lastVerdicts] = [key, []];
+    e.lastVerdicts.push(r.verdict);
+    e.kept = true;
     if (r.kind !== 'tool') e.tool = false;
     if (r.started_at > e.latest) e.latest = r.started_at;
   }
@@ -311,6 +329,10 @@ export function tickets() {
     e.runs.add(r.run_id);
     if (r.finished_at > e.latest) e.latest = r.finished_at;
     e.current.set(r.case_id, r); // ordered by time, so the last one wins
+    // Ordered by time, so the newest run's results come last.
+    const run = r.run_number == null ? r.run_id : `#${r.run_number}`;
+    if (run !== e.lastResultRun) [e.lastResultRun, e.lastResults] = [run, []];
+    e.lastResults.push(r.result);
   }
   return [...byKey.values()]
     .map(e => {
@@ -322,7 +344,8 @@ export function tickets() {
         cases: e.current.size,
         counts,
         latest: e.latest,
-        verdict: e.verdict,
+        // One failing lane fails the run; with every run removed, its cases give the verdict.
+        verdict: e.kept ? worst(e.lastVerdicts) : (verdictOfResults(e.lastResults) ?? null),
         tool: e.tool && e.current.size === 0,
       };
     })
@@ -392,7 +415,11 @@ export function ticketDetail(ticket: string) {
   for (const r of ordered) {
     const key = columnOf(r);
     const column = columnsById.get(key) ?? { first: r, lanes: [] };
-    column.lanes.push({ id: r.id, lane: r.lane, verdict: r.verdict, pruned: r.pruned });
+    // A removed run's verdict is what its cases gave, as in the ticket list.
+    const verdict = r.pruned
+      ? (verdictOfResults(results.filter(x => x.run_id === r.id).map(x => x.result)) ?? null)
+      : r.verdict;
+    column.lanes.push({ id: r.id, lane: r.lane, verdict, pruned: r.pruned });
     columnsById.set(key, column);
   }
   const columnByRun = new Map(ordered.map(r => [r.id, columnOf(r)]));

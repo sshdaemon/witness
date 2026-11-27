@@ -17,7 +17,7 @@ const { createViewer } = await import('../src/ui/server.js');
 const builds = { store: { branch: 'feat/x', sha: 'abc1234', dirty: true } };
 const run = (
   id: string,
-  about: { ticket?: string; branch?: string; kind?: string },
+  about: { ticket?: string; branch?: string; kind?: string; batch?: string; lane?: number },
   verdict?: 'PASS' | 'FAIL',
   summary = '',
 ) => {
@@ -45,6 +45,28 @@ run('20260101000005-eee', {});
 store()
   .prepare('UPDATE runs SET topic = ?, use_case_id = ? WHERE id = ?')
   .run('an old topic', 'old-slug', '20260101000004-ddd');
+
+// A ticket whose runs retention removed: only its case results are left, run 2's last.
+const result = store().prepare(
+  `
+    INSERT INTO case_results (run_id, ticket, case_id, result, run_number, judged_by, finished_at)
+    VALUES (?, 'OLD-1', ?, ?, ?, 'checks', ?)
+  `,
+);
+result.run('gone-1', 'C1', 'FAIL', 1, '2025-01-01T00:00:00Z');
+result.run('gone-2', 'C1', 'PASS', 2, '2025-01-02T00:00:00Z');
+result.run('gone-2', 'C2', 'NOT_RUN', 2, '2025-01-02T00:00:00Z');
+
+// Results with no run number, from two runs: the newer one passed.
+result.run('gone-a', 'C1', 'FAIL', null, '2025-02-01T00:00:00Z');
+result.run('gone-b', 'C1', 'PASS', null, '2025-02-02T00:00:00Z');
+store()
+  .prepare("UPDATE case_results SET ticket = 'OLD-2' WHERE run_id IN ('gone-a', 'gone-b')")
+  .run();
+
+// One run in two lanes: the lane that started first failed.
+run('20260101000006-ln1', { ticket: 'LN-1', batch: 'batch-ln-1', lane: 1 }, 'FAIL');
+run('20260101000007-ln2', { ticket: 'LN-1', batch: 'batch-ln-1', lane: 2 }, 'PASS');
 
 type Ticket = {
   ticket: string | null;
@@ -74,6 +96,55 @@ describe('runs by ticket', () => {
     assert.equal(tickets.find(t => t.ticket === 'TOOL-search')?.tool, true);
     const none = tickets.find(t => t.ticket === null);
     assert.equal(none?.runs, 2);
+  });
+
+  it("gives a ticket whose runs are gone the verdict of its newest run's cases", async () => {
+    const tickets = await json<Ticket[]>('/api/tickets');
+    const old = tickets.find(t => t.ticket === 'OLD-1');
+    assert.equal(old?.verdict, 'BLOCKED');
+    assert.equal(old?.runs, 2);
+  });
+
+  it("gives a removed run's column on the ticket page the verdict of its cases", async () => {
+    const detail = await json<{ runs: { verdict: string | null; pruned: boolean }[] }>(
+      '/api/tickets/OLD-1',
+    );
+    assert.deepEqual(
+      detail.runs.map(r => [r.verdict, r.pruned]),
+      [
+        ['FAIL', true],
+        ['BLOCKED', true],
+      ],
+    );
+  });
+
+  it('takes the verdict of a run in lanes from its worst lane', async () => {
+    const tickets = await json<Ticket[]>('/api/tickets');
+    assert.equal(tickets.find(t => t.ticket === 'LN-1')?.verdict, 'FAIL');
+  });
+
+  it('takes only the newest run when removed runs left results without a number', async () => {
+    const tickets = await json<Ticket[]>('/api/tickets');
+    assert.equal(tickets.find(t => t.ticket === 'OLD-2')?.verdict, 'PASS');
+  });
+
+  it('serves the page, its code, the logo and only the Shoelace files it needs', async () => {
+    const page = await fetch(`${base}/`);
+    assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self';/);
+    assert.match(await page.text(), /<witness-app/);
+    const code = await fetch(`${base}/app.js`);
+    assert.equal(code.status, 200);
+    assert.match(code.headers.get('content-type') ?? '', /javascript/);
+    assert.match(await code.text(), /witness-app/);
+    assert.equal((await fetch(`${base}/logo.png`)).headers.get('content-type'), 'image/png');
+    assert.equal((await fetch(`${base}/vendor/shoelace/themes/light.css`)).status, 200);
+    for (const path of [
+      '..%2Fpackage.json',
+      'shoelace.d.ts',
+      'nope.js',
+      'themes/../../package.json',
+    ])
+      assert.equal((await fetch(`${base}/vendor/shoelace/${path}`)).status, 404, path);
   });
 
   it('no longer serves topics', async () => {

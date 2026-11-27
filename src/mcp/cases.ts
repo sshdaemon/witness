@@ -3,6 +3,7 @@ import { prose } from '../prose.js';
 import { runLabel } from './names.js';
 import {
   store,
+  verdictOfResults,
   type CaseResult,
   type CaseResultRow,
   type Check,
@@ -219,10 +220,7 @@ export function verdictFromCases(runId: string): Verdict | undefined {
       result: CaseResult;
     }[]
   ).map(r => r.result);
-  if (results.length === 0) return undefined;
-  if (results.includes('FAIL')) return 'FAIL';
-  if (results.some(r => r === 'BLOCKED' || r === 'NOT_RUN')) return 'BLOCKED';
-  return 'PASS';
+  return verdictOfResults(results);
 }
 
 export const caseOpenError = (caseId: string) =>

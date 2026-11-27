@@ -175,6 +175,17 @@ export function registerFunctions(d: DatabaseSync) {
   );
 }
 
+/**
+ * A run's verdict from its cases' results: FAIL when any failed, else BLOCKED when any was blocked
+ * or not run, else PASS. Undefined when there are none.
+ */
+export function verdictOfResults(results: string[]): 'PASS' | 'FAIL' | 'BLOCKED' | undefined {
+  if (results.length === 0) return undefined;
+  if (results.includes('FAIL')) return 'FAIL';
+  if (results.some(r => r === 'BLOCKED' || r === 'NOT_RUN')) return 'BLOCKED';
+  return 'PASS';
+}
+
 let db: DatabaseSync | undefined;
 
 export function store(): DatabaseSync {

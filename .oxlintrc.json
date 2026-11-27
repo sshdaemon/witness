@@ -81,6 +81,15 @@
   },
   "overrides": [
     {
+      "files": ["src/ui/client/main.ts"],
+      "rules": {
+        "import/no-unassigned-import": [
+          "error",
+          { "allow": ["@shoelace-style/shoelace/dist/components/**"] }
+        ]
+      }
+    },
+    {
       "files": ["test/**"],
       "rules": {
         "require-await": "off"

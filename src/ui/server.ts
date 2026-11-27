@@ -1,9 +1,11 @@
-import { createReadStream, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { dirname, extname, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { prose } from '../prose.js';
+import { clientBundle } from './bundle.js';
 import {
   caseDetail,
   evidence,
@@ -20,9 +22,31 @@ const PORT = Number(process.env.WITNESS_PORT) || 4477;
 const PUBLIC_DIR = resolve(import.meta.dirname, 'public');
 const STATIC: Record<string, { file: string; type: string }> = {
   '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' },
   '/app.css': { file: 'app.css', type: 'text/css; charset=utf-8' },
+  '/logo.png': { file: 'logo.png', type: 'image/png' },
 };
+
+// Shoelace's own self-contained build: the viewer serves it, as its policy allows no other origin.
+const SHOELACE_DIR = resolve(
+  dirname(fileURLToPath(import.meta.resolve('@shoelace-style/shoelace'))),
+  '..',
+  'cdn',
+);
+const VENDOR_TYPES: Record<string, string> = {
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+};
+
+/** A file of Shoelace's build, only inside its folder and only of the types above. */
+function vendorFile(path: string): { file: string; type: string } | undefined {
+  const type = VENDOR_TYPES[extname(path)];
+  if (!type || !/^[\w./-]+$/.test(path) || path.split('/').includes('..')) return undefined;
+  const file = resolve(SHOELACE_DIR, path);
+  if (!file.startsWith(SHOELACE_DIR + sep) || !existsSync(file) || !statSync(file).isFile())
+    return undefined;
+  return { file, type };
+}
 
 const json = (res: ServerResponse, body: unknown, status = 200) => {
   res.writeHead(status, {
@@ -39,6 +63,20 @@ const sendPng = (res: ServerResponse, file: string | undefined) => {
     .on('error', () => res.destroy())
     .pipe(res);
 };
+
+async function sendBundle(res: ServerResponse) {
+  try {
+    const code = await clientBundle();
+    res.writeHead(200, {
+      'content-type': 'text/javascript; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    res.end(code);
+  } catch (e) {
+    console.error(e);
+    json(res, { error: 'the viewer code did not build' }, 500);
+  }
+}
 
 // The viewer serves files itself, from these addresses.
 const URLS: Links = {
@@ -66,11 +104,12 @@ function handle(req: IncomingMessage, res: ServerResponse, port: number) {
     return json(res, { error: 'bad host' }, 403);
   if (req.method !== 'GET') return json(res, { error: 'read only' }, 405);
 
+  // Shoelace fetches its built-in icons as data: URLs, which can carry nothing out.
   res.setHeader(
     'content-security-policy',
     prose`
       default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src
-      'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+      'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
   );
   res.setHeader('cross-origin-resource-policy', 'same-origin');
   res.setHeader('x-content-type-options', 'nosniff');
@@ -81,6 +120,15 @@ function handle(req: IncomingMessage, res: ServerResponse, port: number) {
   if (asset) {
     res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' });
     return res.end(readFileSync(resolve(PUBLIC_DIR, asset.file)));
+  }
+  if (url.pathname === '/app.js') return void sendBundle(res);
+  if (url.pathname.startsWith('/vendor/shoelace/')) {
+    const vendor = vendorFile(url.pathname.slice('/vendor/shoelace/'.length));
+    if (!vendor) return json(res, { error: 'not found' }, 404);
+    res.writeHead(200, { 'content-type': vendor.type, 'cache-control': 'max-age=86400' });
+    return createReadStream(vendor.file)
+      .on('error', () => res.destroy())
+      .pipe(res);
   }
   if (url.pathname === '/api/runs') {
     const q = url.searchParams;
