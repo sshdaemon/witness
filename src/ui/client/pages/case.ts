@@ -1,25 +1,12 @@
 import { html, nothing } from 'lit';
 import { api, type CaseDetail, type CaseRun, type Step } from '../api.js';
-import {
-  buildsLine,
-  caseHref,
-  checkList,
-  crumbs,
-  dur,
-  empty,
-  dot,
-  ranAt,
-  resultCell,
-  word,
-  plural,
-  runHref,
-  shortArgs,
-  stepError,
-  stepShots,
-  ticketHref,
-  verdict,
-} from '../parts.js';
-import type { Slide } from '../present.js';
+import { buildsLine, dur, plural, ranAt, shortArgs } from '../format.js';
+import { caseHref, runHref, ticketHref } from '../links.js';
+import { checkList } from '../parts/checks.js';
+import { crumbs, empty } from '../parts/layout.js';
+import { stepError, stepShots } from '../parts/steps.js';
+import { dot, resultCell, verdict, word } from '../parts/verdict.js';
+import { slidesOf, type Slide } from '../present.js';
 
 export type CaseData = { detail: CaseDetail; chosen: CaseRun | undefined; steps: Step[] };
 
@@ -33,18 +20,6 @@ export async function loadCase(ticket: string, caseId: string, runId?: string): 
   const steps = run && range ? run.steps.filter(s => s.seq >= range.from && s.seq <= range.to) : [];
   return { detail, chosen, steps };
 }
-
-/** One slide per screenshot, and one for a step that took none. */
-export const slidesOf = (steps: Step[]): Slide[] =>
-  steps.flatMap(step => {
-    const shots = stepShots(step);
-    return (shots.length > 0 ? shots : [null]).map((src, frame) => ({
-      step,
-      src,
-      frame,
-      frames: shots.length,
-    }));
-  });
 
 const list = (v: unknown[] | null) =>
   Array.isArray(v) && v.length > 0

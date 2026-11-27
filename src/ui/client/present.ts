@@ -1,9 +1,23 @@
 import { html, LitElement, nothing } from 'lit';
 import type { Step } from './api.js';
-import { shortArgs, stepError, verdict } from './parts.js';
+import { shortArgs } from './format.js';
+import { stepError, stepShots } from './parts/steps.js';
+import { verdict } from './parts/verdict.js';
 
 /** One screenshot of a step, or the step alone when it took none. */
 export type Slide = { step: Step; src: string | null; frame: number; frames: number };
+
+/** One slide per screenshot, and one for a step that took none. */
+export const slidesOf = (steps: Step[]): Slide[] =>
+  steps.flatMap(step => {
+    const shots = stepShots(step);
+    return (shots.length > 0 ? shots : [null]).map((src, frame) => ({
+      step,
+      src,
+      frame,
+      frames: shots.length,
+    }));
+  });
 
 /**
  * Steps one at a time, full screen: ← → (or PageUp / PageDown, space) move, Home and End jump to

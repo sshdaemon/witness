@@ -1,28 +1,11 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { api, type RunRow, type TicketDetail } from '../api.js';
-import {
-  ago,
-  barOf,
-  buildsLine,
-  caseHref,
-  countsOf,
-  crumbs,
-  dot,
-  dur,
-  fmtTime,
-  go,
-  ICON,
-  resultCell,
-  plural,
-  runHref,
-  runName,
-  runsTable,
-  served,
-  summaryLines,
-  tally,
-  verdict,
-  word,
-} from '../parts.js';
+import { ago, buildsLine, dur, fmtTime, plural, runName } from '../format.js';
+import { caseHref, go, runHref } from '../links.js';
+import { summaryLines } from '../parts/checks.js';
+import { crumbs } from '../parts/layout.js';
+import { runsTable, served } from '../parts/runs.js';
+import { barOf, countsOf, dot, ICON, resultCell, tally, verdict, word } from '../parts/verdict.js';
 
 export type TicketData = { detail: TicketDetail; runs: RunRow[] };
 

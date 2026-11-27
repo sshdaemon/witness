@@ -1,16 +1,10 @@
 import { html, nothing } from 'lit';
 import { api, type RunRow, type Ticket } from '../api.js';
-import {
-  ago,
-  barOf,
-  countsOf,
-  crumbs,
-  empty,
-  plural,
-  runsTable,
-  ticketHref,
-  verdict,
-} from '../parts.js';
+import { ago, plural } from '../format.js';
+import { ticketHref } from '../links.js';
+import { crumbs, empty } from '../parts/layout.js';
+import { runsTable } from '../parts/runs.js';
+import { barOf, countsOf, verdict } from '../parts/verdict.js';
 
 const PAGE_SIZE = 15;
 
