@@ -166,7 +166,6 @@ describe('placeholders', () => {
 
 const file = (cases: CaseFile['cases'], extra: Partial<CaseFile> = {}): CaseFile => ({
   ticket: 'AB-1',
-  topic: 'Runner tests',
   cases,
   ...extra,
 });
@@ -197,10 +196,7 @@ describe('case files', () => {
         ),
       /exactly one of/,
     );
-    assert.throws(
-      () => parseCaseFile({ ticket: 'AB-1', topic: 'x', cases: {}, extra: 1 }),
-      /Not a valid/,
-    );
+    assert.throws(() => parseCaseFile({ ticket: 'AB-1', cases: {}, extra: 1 }), /Not a valid/);
     assert.throws(
       () =>
         parseCaseFile(

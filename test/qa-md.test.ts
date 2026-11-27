@@ -8,7 +8,6 @@ await import('./helpers/app.js');
 
 const file = parseCaseFile({
   ticket: 'AB-9',
-  topic: 'AB-9 Ledger',
   fixtures: { product: [['product_create', { name: 'x' }, { as: 'product' }]] },
   cases: {
     C10: {

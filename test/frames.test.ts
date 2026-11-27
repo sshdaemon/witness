@@ -16,7 +16,7 @@ const { createViewer } = await import('../src/ui/server.js');
 
 const RUN = '20260101000000-frm';
 const shot = (name: string) => join(dir, 'runs', RUN, 'screenshots', name);
-const recorder = new Recorder(RUN, 'local', 'frm', { topic: 'Frames of a step' });
+const recorder = new Recorder(RUN, 'local', 'frm', {});
 const base = { args: {}, ok: true, durationMs: 5 };
 const many = recorder.step({
   ...base,

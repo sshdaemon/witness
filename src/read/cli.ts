@@ -14,7 +14,7 @@ import {
 
 const USAGE = `usage: npm run -s read -- <command>
   where                           the store folder and database
-  runs [--topic t] [--env e] [--verdict v] [--limit n]
+  runs [--ticket t] [--env e] [--verdict v] [--limit n]
   run <runId>                     the run, its cases, artifacts and lanes (no steps)
   steps <runId> [--from n] [--to m]   steps with their answers and screenshot paths
   tickets                         every ticket with its cases' latest results
@@ -51,7 +51,7 @@ function read(): unknown {
       return { resultsDir: RESULTS_DIR, database: DB_PATH };
     case 'runs':
       return runs({
-        topic: flag('topic'),
+        ticket: flag('ticket'),
         env: flag('env'),
         verdict: flag('verdict'),
         limit: number('limit'),

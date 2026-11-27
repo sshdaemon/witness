@@ -13,7 +13,6 @@ import {
   screenshotFile,
   ticketDetail,
   tickets,
-  topics,
   type Links,
 } from '../read/index.js';
 
@@ -83,10 +82,9 @@ function handle(req: IncomingMessage, res: ServerResponse, port: number) {
     res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' });
     return res.end(readFileSync(resolve(PUBLIC_DIR, asset.file)));
   }
-  if (url.pathname === '/api/topics') return json(res, topics());
   if (url.pathname === '/api/runs') {
     const q = url.searchParams;
-    const filter = { topic: q.get('topic'), env: q.get('env'), verdict: q.get('verdict') };
+    const filter = { ticket: q.get('ticket'), env: q.get('env'), verdict: q.get('verdict') };
     return json(res, runs({ ...filter, limit: q.get('limit') }));
   }
   if (url.pathname === '/api/evidence') return json(res, evidence(URLS));

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, before, describe, it } from 'node:test';
 
-// A store from before topics, branches and kinds existed. The viewer reads it as it is and never
+// A store from before branches, kinds and tickets existed. The viewer reads it as it is and never
 // migrates it.
 const dir = mkdtempSync(join(tmpdir(), 'witness-legacy-viewer-'));
 process.env.WITNESS_RESULTS_DIR = dir;
@@ -62,28 +62,18 @@ describe('viewer over an older store', () => {
     assert.equal((await fetch(`${base}/api/tickets/AB-1`)).status, 404);
   });
 
-  it('groups, lists and opens runs that have only a use-case slug', async () => {
-    const topics = (await (await fetch(`${base}/api/topics`)).json()) as {
-      key: string;
-      title: string;
-      tool: boolean;
-    }[];
-    assert.deepEqual(
-      topics.map(t => [t.key, t.title, t.tool]),
-      [['old-case-name', 'Old case name', false]],
-    );
-    const runs = (await (await fetch(`${base}/api/runs?topic=old-case-name`)).json()) as {
+  it('lists and opens runs that have only a use-case slug', async () => {
+    const runs = (await (await fetch(`${base}/api/runs`)).json()) as {
       id: string;
-      topic: string;
       branch: string | null;
     }[];
     assert.deepEqual(
-      runs.map(r => [r.id, r.topic, r.branch]),
-      [['r1', 'Old case name', null]],
+      runs.map(r => [r.id, r.branch]),
+      [['r1', null]],
     );
     const detail = (await (await fetch(`${base}/api/runs/r1`)).json()) as {
-      run: { topic: string };
+      run: { id: string };
     };
-    assert.equal(detail.run.topic, 'Old case name');
+    assert.equal(detail.run.id, 'r1');
   });
 });

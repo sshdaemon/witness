@@ -1,4 +1,3 @@
-import { topicTitle } from '../titles.js';
 import { failedSteps, reportRuns, type ReportRun } from '../read/index.js';
 import type { Builds } from '../app.js';
 import { prose } from '../prose.js';
@@ -50,21 +49,21 @@ function runSection(r: RunRow, heading: string): string {
 
 /**
  * Raw notes for drafting a ticket or pull request comment: one run, or the latest runs of a
- * topic. Local evidence paths are left out on purpose.
+ * ticket. Local evidence paths are left out on purpose.
  */
 export function buildReport(opts: {
   runId?: string;
-  topic?: string;
+  ticket?: string;
   last?: number;
 }): string | undefined {
   const rows = reportRuns(opts);
   if (opts.runId) {
     const r = rows[0];
-    return r && `# UI test: ${topicTitle(r.topic)}\n\n${runSection(r, '##')}\n`;
+    return r && `# UI test: ${r.label ?? r.ticket ?? 'no ticket'}\n\n${runSection(r, '##')}\n`;
   }
   if (rows.length === 0) return undefined;
   return [
-    `# UI test: ${topicTitle(rows[0]!.topic)}`,
+    `# UI test: ${rows[0]!.ticket}`,
     '',
     ...rows.map((r, i) => `${runSection(r, i === 0 ? '## Latest:' : '## Earlier:')}\n`),
   ].join('\n');

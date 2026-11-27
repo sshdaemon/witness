@@ -107,7 +107,6 @@ export async function runCaseFile(
   const now = opts.now ?? (() => new Date());
 
   const started = await call('session_start', {
-    topic: file.topic,
     ticket: file.ticket,
     kind: 'test',
     ...(opts.env ? { env: opts.env } : {}),

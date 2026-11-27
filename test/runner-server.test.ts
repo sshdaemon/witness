@@ -40,7 +40,6 @@ after(async () => {
 // Tools that need no browser stand in for the product: runs_list reads, run_get refuses.
 const file = parseCaseFile({
   ticket: 'AB-77',
-  topic: 'AB-77 Runner through the server',
   cases: {
     C1: {
       title: 'A read checked by its expects',

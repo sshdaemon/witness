@@ -75,7 +75,7 @@ describe('which traces a run keeps', () => {
     prose`
     records ABORTED before closing, so a run ended without run_finish keeps its trace`,
     async () => {
-      const s = await startSession({ env: 'staging', topic: 'trace check' });
+      const s = await startSession({ env: 'staging', ticket: 'TOOL-trace' });
       open(s);
       await endSession();
       assert.equal(s.recorder.verdict, 'ABORTED');

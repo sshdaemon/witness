@@ -222,7 +222,6 @@ export function promote(source: CaseFile, ids: string[], suite: CaseFile): Promo
 export function newSuite(area: string): CaseFile {
   return {
     ticket: `REG-${area.toUpperCase()}`,
-    topic: `Regression: ${area}`,
     cases: {},
   };
 }

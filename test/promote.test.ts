@@ -10,7 +10,6 @@ const read = (path: string, extra: Record<string, unknown> = {}) =>
 
 const source = parseCaseFile({
   ticket: 'AB-70',
-  topic: 'AB-70 Shared product',
   setup: [['login', { actor: 'seller' }]],
   env: { local: { storeId: 'c-local', unused: 'u' }, staging: { storeId: 'c-staging' } },
   fixtures: {
@@ -74,7 +73,6 @@ describe('promoting cases into a suite', () => {
   it('renames clashing names in every fixture and case it copies, chained ones too', () => {
     const chained = parseCaseFile({
       ticket: 'AB-71',
-      topic: 'AB-71 Chained',
       fixtures: {
         product: [['product_create', { name: 'capped' }, { as: 'product' }]],
         order: [['order_create', { product: '{{product.slug}}' }, { as: 'order' }]],
@@ -150,7 +148,6 @@ describe('promoting cases into a suite', () => {
   it('keeps one variable per name across a copied chain, as in the ticket run', () => {
     const chain = parseCaseFile({
       ticket: 'AB-76',
-      topic: 'AB-76 Chain',
       cases: {
         C1: { title: 'a', block: [['product_create', {}, { as: 'x' }], read('stock')] },
         C2: { title: 'b', block: [['product_create', {}, { as: 'x' }], read('stock')] },
@@ -168,7 +165,6 @@ describe('promoting cases into a suite', () => {
   it('renames each name once, even when a new name matches another source name', () => {
     const named = parseCaseFile({
       ticket: 'AB-77',
-      topic: 'AB-77 Names',
       cases: {
         C1: {
           title: 'a',
@@ -205,7 +201,6 @@ describe('promoting cases into a suite', () => {
   it('refuses a case reading data from a case it does not run after', () => {
     const loose = parseCaseFile({
       ticket: 'AB-78',
-      topic: 'AB-78 Loose',
       cases: {
         C1: { title: 'a', block: [['product_create', {}, { as: 'product' }], read('stock')] },
         C2: { title: 'b', block: [read('stock', { id: '{{product.id}}', c: '{{env.store}}' })] },
@@ -222,7 +217,6 @@ describe('promoting cases into a suite', () => {
     );
     const early = parseCaseFile({
       ticket: 'AB-79',
-      topic: 'AB-79 Early read',
       cases: {
         C1: { title: 'a', block: [['order_create', {}, { as: 'order' }], read('stock')] },
         C2: {
@@ -245,7 +239,6 @@ describe('promoting cases into a suite', () => {
   it("refuses run-wide placeholders, which would read other cases' data in a suite", () => {
     const positional = parseCaseFile({
       ticket: 'AB-72',
-      topic: 'AB-72 Positional',
       cases: { C1: { title: 'x', block: [read('stock', { id: '{{SKU1}}', slug: '{{PAGE}}' })] } },
     });
     assert.throws(

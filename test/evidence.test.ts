@@ -14,7 +14,7 @@ const { listEvidence, markPosted, pickEvidence, removeEvidence } =
 const { ToolError } = await import('../src/errors.js');
 const { createViewer } = await import('../src/ui/server.js');
 
-const recorder = new Recorder('20261016100000-evd', 'staging', 'evd', { topic: 'Evidence' });
+const recorder = new Recorder('20261016100000-evd', 'staging', 'evd', {});
 recorder.beginCall('orders_read');
 const frame = recorder.shotPath('frame');
 const before = recorder.shotPath('verify-before');

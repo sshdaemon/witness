@@ -26,7 +26,6 @@ const call1 = (name: string, args: Record<string, unknown> = {}) =>
   [name, args] as [string, Record<string, unknown>];
 const file = parseCaseFile({
   ticket: 'AB-60',
-  topic: 'AB-60 Lanes',
   fixtures: {
     capped: [call1('product_create', { name: 'capped' })],
     other: [call1('product_create', { name: 'other' })],
@@ -163,12 +162,11 @@ describe('a batch of lanes', () => {
   const runIds: string[] = [];
 
   it('shares one run number, each lane labelled with its lane', async () => {
-    await call('session_start', { topic: 'AB-60 Lanes', ticket: 'AB-60', env: 'staging' });
+    await call('session_start', { ticket: 'AB-60', env: 'staging' });
     await call('run_finish', { verdict: 'PASS', summary: 'run 1' });
     await call('session_end');
     for (const lane of [1, 2]) {
       const s = await call('session_start', {
-        topic: 'AB-60 Lanes',
         ticket: 'AB-60',
         env: 'staging',
         batch: 'b20261104-abcdef',
@@ -186,7 +184,6 @@ describe('a batch of lanes', () => {
       await call('session_end');
     }
     const next = await call('session_start', {
-      topic: 'AB-60 Lanes',
       ticket: 'AB-60',
       env: 'staging',
     });

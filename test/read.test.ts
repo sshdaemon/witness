@@ -49,8 +49,7 @@ before(async () => {
         structuredContent: { data: Json };
       }
     ).structuredContent.data;
-  runId = (await call('session_start', { topic: 'read contract', env: 'staging', ticket: 'AB-1' }))
-    .runId;
+  runId = (await call('session_start', { env: 'staging', ticket: 'AB-1' })).runId;
   await call('case_begin', { caseId: 'C1' });
   await call('runs_list', { limit: 1 });
   await call('case_end', { caseId: 'C1', result: 'PASS', actual: 'listed' });

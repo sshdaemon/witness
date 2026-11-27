@@ -166,10 +166,10 @@ function migrate(d: DatabaseSync, from: number) {
 }
 
 /**
- * SQLite's own LOWER only folds ASCII, so topics are compared with the same toLowerCase the viewer
+ * SQLite's own LOWER only folds ASCII, so tickets are compared with the same toLowerCase the viewer
  * groups them by.
  */
-export function registerTopicFunctions(d: DatabaseSync) {
+export function registerFunctions(d: DatabaseSync) {
   d.function('ulower', { deterministic: true }, v =>
     v == null ? null : String(v).trim().toLowerCase(),
   );
@@ -183,7 +183,7 @@ export function store(): DatabaseSync {
     const d = new DatabaseSync(DB_PATH);
     d.exec('PRAGMA journal_mode = WAL');
     d.exec('PRAGMA busy_timeout = 5000');
-    registerTopicFunctions(d);
+    registerFunctions(d);
     // Several server processes share the store, so one of them migrates and the others wait for it.
     d.exec('BEGIN IMMEDIATE');
     try {
@@ -228,13 +228,7 @@ export type StepRow = {
   observation_json: string | null;
 };
 
-/**
- * What a run is about: the topic the session gave, else the use-case slug that older runs recorded.
- */
-export const TOPIC_SQL = "COALESCE(NULLIF(TRIM(topic), ''), use_case_id)";
-
 export function listRuns(filter: {
-  topic?: string;
   ticket?: string;
   env?: string;
   verdict?: string;
@@ -242,10 +236,6 @@ export function listRuns(filter: {
 }) {
   const where: string[] = [];
   const params: Record<string, string | number> = { limit: Math.min(filter.limit ?? 20, 100) };
-  if (filter.topic) {
-    where.push(`ulower(${TOPIC_SQL}) = ulower(:topic)`);
-    params.topic = filter.topic;
-  }
   if (filter.ticket) {
     where.push('ulower(ticket) = ulower(:ticket)');
     params.ticket = filter.ticket;
@@ -259,8 +249,8 @@ export function listRuns(filter: {
     params.verdict = filter.verdict;
   }
   const sql = `
-    SELECT id, ${TOPIC_SQL} AS topic, ticket, run_number, label, branch, env, run_tag, started_at,
-      finished_at, verdict, summary, first_failure_step
+    SELECT id, ticket, run_number, label, branch, env, run_tag, started_at, finished_at, verdict,
+      summary, first_failure_step
     FROM runs ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY started_at DESC, id DESC
     LIMIT :limit

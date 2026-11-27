@@ -32,7 +32,7 @@ const call = async (name: string, args: Record<string, unknown> = {}): Promise<E
   return res.structuredContent!;
 };
 const start = (args: Record<string, unknown> = {}) =>
-  call('session_start', { topic: 'case recording tests', env: 'staging', ...args });
+  call('session_start', { ticket: 'AB-1', env: 'staging', ...args });
 const end = async () => {
   if (getSession()) await call('session_end');
 };
@@ -73,11 +73,10 @@ describe('run numbers', () => {
     await end();
   });
 
-  it('gives a run without a ticket no number', async () => {
-    const r = await start();
-    assert.equal(r.data.runNumber, null);
-    assert.equal(r.data.ticket, null);
-    await end();
+  it('refuses a run without a ticket', async () => {
+    const r = await call('session_start', { env: 'staging' });
+    assert.equal(r?.ok ?? false, false);
+    assert.equal(getSession(), undefined);
   });
 
   it('never gives two processes the same number', async () => {
@@ -211,16 +210,9 @@ describe('cases in a run', () => {
     await end();
   });
 
-  it('takes the ticket from the first case when the run had none, keeping the label', async () => {
-    await start();
-    assert.equal((await call('case_begin', { caseId: 'C1' })).code, 'NO_TICKET');
-    const begin = await call('case_begin', { caseId: 'C1', ticket: 'AB-12' });
-    assert.equal(begin.data.ticket, 'AB-12');
-    assert.equal(getSession()!.recorder.runNumber, 1);
-    assert.equal(getSession()!.recorder.label, undefined, 'names built so far carry no label');
-  });
-
   it('closes a case left open as BLOCKED when the session ends', async () => {
+    await start({ ticket: 'AB-12' });
+    await call('case_begin', { caseId: 'C1' });
     const runId = getSession()!.runId;
     await end();
     const got = await call('run_get', { id: runId });

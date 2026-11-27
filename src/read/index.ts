@@ -4,12 +4,9 @@ import { existsSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { DB_PATH, EVIDENCE_DIR, fromStored, runDir } from '../paths.js';
-import { registerTopicFunctions } from '../mcp/store.js';
-import { topicKey, topicTitle } from '../titles.js';
+import { registerFunctions } from '../mcp/store.js';
 import { buildMap, otherBuild } from '../runner/missing.js';
-import { prose } from '../prose.js';
 import type { LedgerResult, LedgerRun } from '../ledger/qaMd.js';
-import { TOPIC_SQL } from '../mcp/store.js';
 
 // Read-only on purpose: the viewer can never alter a run.
 let db: DatabaseSync | undefined;
@@ -17,7 +14,7 @@ const database = () => {
   if (!existsSync(DB_PATH)) return undefined;
   if (!db) {
     db = new DatabaseSync(DB_PATH, { readOnly: true });
-    registerTopicFunctions(db);
+    registerFunctions(db);
   }
   return db;
 };
@@ -29,61 +26,9 @@ const columns = (d: DatabaseSync): Cols =>
   new Set((d.prepare('PRAGMA table_info(runs)').all() as { name: string }[]).map(c => c.name));
 const col = (cols: Cols, name: string, prefix = '') =>
   cols.has(name) ? `${prefix}${name}` : `NULL AS ${name}`;
-const topicOf = (cols: Cols, prefix = '') =>
-  prose`
-    COALESCE(NULLIF(TRIM(${cols.has('topic') ? `${prefix}topic` : 'NULL'}), ''),
-    ${prefix}use_case_id)`;
-
-type TopicRun = {
-  id: string;
-  verdict: string | null;
-  started_at: string;
-  branch: string | null;
-  kind: string | null;
-  topic: string | null;
-};
-
-/** What is being tested: one entry per topic, with how its runs have gone. */
-export function topics() {
-  const d = database();
-  if (!d) return [];
-  const cols = columns(d);
-  const rows = d
-    .prepare(
-      `
-        SELECT id, verdict, started_at, ${col(cols, 'branch')}, ${col(cols, 'kind')},
-          ${topicOf(cols)} AS topic
-        FROM runs
-        ORDER BY started_at DESC, id DESC
-      `,
-    )
-    .all() as TopicRun[];
-  const byKey = new Map<string, TopicRun[]>();
-  for (const r of rows) {
-    const key = topicKey(r.topic);
-    const group = byKey.get(key);
-    if (group) group.push(r);
-    else byKey.set(key, [r]);
-  }
-  return [...byKey.entries()].map(([key, topicRuns]) => {
-    const latest = topicRuns[0]!;
-    return {
-      key,
-      title: topicTitle(latest.topic),
-      runs: topicRuns.length,
-      tool: topicRuns.every(r => r.kind === 'tool'),
-      latest: { id: latest.id, verdict: latest.verdict, started_at: latest.started_at },
-      branch: topicRuns.find(r => r.branch)?.branch ?? null,
-      recent: topicRuns
-        .slice(0, 12)
-        .map(r => ({ id: r.id, verdict: r.verdict, started_at: r.started_at })),
-    };
-  });
-}
-
-/** What runs() filters on; a topic of '' means runs without one. */
+/** What runs() filters on; a ticket of '' means runs without one. */
 export type RunFilter = {
-  topic?: string | null;
+  ticket?: string | null;
   env?: string | null;
   verdict?: string | null;
   limit?: number | string | null;
@@ -98,10 +43,10 @@ export function runs(q: RunFilter = {}) {
   const params: Record<string, string | number> = {
     limit: Math.min(Math.max(Math.trunc(Number(q.limit)) || 50, 1), 200),
   };
-  const topic = q.topic ?? null;
-  if (topic !== null) {
-    where.push(`ulower(COALESCE(${topicOf(cols, 'r.')}, '')) = :topic`);
-    params.topic = topicKey(topic);
+  const ticket = q.ticket ?? null;
+  if (ticket !== null && cols.has('ticket')) {
+    where.push(`ulower(COALESCE(r.ticket, '')) = ulower(:ticket)`);
+    params.ticket = ticket;
   }
   for (const [key, name] of [
     ['env', 'env'],
@@ -114,7 +59,7 @@ export function runs(q: RunFilter = {}) {
     }
   }
   const sql = `
-    SELECT r.id, ${topicOf(cols, 'r.')} AS topic, ${col(cols, 'branch', 'r.')}, r.env,
+    SELECT r.id, ${col(cols, 'branch', 'r.')}, r.env, ${col(cols, 'kind', 'r.')},
       ${col(cols, 'ticket', 'r.')}, ${col(cols, 'run_number', 'r.')}, ${col(cols, 'label', 'r.')},
       r.run_tag, r.started_at, r.finished_at, r.verdict, r.summary, r.first_failure_step,
       ${col(cols, 'app_versions', 'r.')},
@@ -126,7 +71,6 @@ export function runs(q: RunFilter = {}) {
   `;
   return (d.prepare(sql).all(params) as Record<string, unknown>[]).map(r => ({
     ...r,
-    topic: topicTitle(r.topic as string | null),
     app_versions: parse(r.app_versions as string | null),
   }));
 }
@@ -231,13 +175,10 @@ export function runDetail(
           .all(id) as ResultRow[]
       ).map(r => ({ ticket: r.ticket, caseId: r.case_id, ...caseResult(r) }))
     : [];
-  const topic =
-    (typeof run.topic === 'string' && run.topic.trim()) ||
-    (typeof run.use_case_id === 'string' ? run.use_case_id : null);
+  const { topic: _topic, use_case_id: _useCase, ...own } = run;
   return {
     run: {
-      ...run,
-      topic: topicTitle(topic),
+      ...own,
       app_versions: parse(run.app_versions as string | null),
     },
     steps,
@@ -311,27 +252,58 @@ const caseResult = (r: ResultRow) => ({
   finishedAt: r.finished_at,
 });
 
-/** Every ticket with numbered runs or case results, the most recently tested first. */
+/**
+ * Every ticket with runs or case results, the most recently tested first. Runs from before every
+ * run had a ticket come together in one entry whose ticket is null.
+ */
 export function tickets() {
   const d = database();
   if (!d || !hasTable(d, 'case_results') || !columns(d).has('ticket')) return [];
+  const cols = columns(d);
   const results = d.prepare('SELECT * FROM case_results ORDER BY finished_at').all() as ResultRow[];
   const runRows = d
-    .prepare('SELECT id, ticket, started_at FROM runs WHERE ticket IS NOT NULL')
-    .all() as { id: string; ticket: string; started_at: string }[];
-  const byKey = new Map<
-    string,
-    { ticket: string; runs: Set<string>; latest: string; current: Map<string, ResultRow> }
-  >();
-  const entry = (ticket: string) => {
-    const key = ticket.toLowerCase();
+    .prepare(
+      `SELECT id, ticket, started_at, verdict, ${col(cols, 'kind')} FROM runs ORDER BY started_at`,
+    )
+    .all() as {
+    id: string;
+    ticket: string | null;
+    started_at: string;
+    verdict: string | null;
+    kind: string | null;
+  }[];
+  type Entry = {
+    ticket: string | null;
+    runs: Set<string>;
+    latest: string;
+    verdict: string | null;
+    tool: boolean;
+    current: Map<string, ResultRow>;
+  };
+  const byKey = new Map<string, Entry>();
+  const entry = (ticket: string | null) => {
+    const key = ticket?.toLowerCase() ?? '';
     let e = byKey.get(key);
-    if (!e) byKey.set(key, (e = { ticket, runs: new Set(), latest: '', current: new Map() }));
+    if (!e)
+      byKey.set(
+        key,
+        (e = {
+          ticket,
+          runs: new Set(),
+          latest: '',
+          verdict: null,
+          tool: true,
+          current: new Map(),
+        }),
+      );
     return e;
   };
   for (const r of runRows) {
     const e = entry(r.ticket);
     e.runs.add(r.id);
+    // ordered by start, so the last run wins
+    e.verdict = r.verdict;
+    if (r.kind !== 'tool') e.tool = false;
     if (r.started_at > e.latest) e.latest = r.started_at;
   }
   for (const r of results) {
@@ -350,6 +322,8 @@ export function tickets() {
         cases: e.current.size,
         counts,
         latest: e.latest,
+        verdict: e.verdict,
+        tool: e.tool && e.current.size === 0,
       };
     })
     .toSorted((a, b) => b.latest.localeCompare(a.latest));
@@ -679,7 +653,8 @@ export function ledgerRows(ticket: string): { results: LedgerResult[]; runs: Led
 /** A run as a report shows it. */
 export type ReportRun = {
   id: string;
-  topic: string | null;
+  ticket: string | null;
+  label: string | null;
   branch: string | null;
   env: string;
   run_tag: string;
@@ -690,11 +665,11 @@ export type ReportRun = {
   app_versions: string | null;
 };
 
-const REPORT_COLUMNS = `id, ${TOPIC_SQL} AS topic, branch, env, run_tag, started_at, finished_at,
+const REPORT_COLUMNS = `id, ticket, label, branch, env, run_tag, started_at, finished_at,
   verdict, summary, app_versions`;
 
-/** One run, or the latest runs of a topic (3 by default, at most 10), newest first. */
-export function reportRuns(opts: { runId?: string; topic?: string; last?: number }): ReportRun[] {
+/** One run, or the latest runs of a ticket (3 by default, at most 10), newest first. */
+export function reportRuns(opts: { runId?: string; ticket?: string; last?: number }): ReportRun[] {
   const d = database();
   if (!d) return [];
   if (opts.runId) {
@@ -705,11 +680,11 @@ export function reportRuns(opts: { runId?: string; topic?: string; last?: number
     .prepare(
       `
         SELECT ${REPORT_COLUMNS} FROM runs
-        WHERE ulower(${TOPIC_SQL}) = ulower(?)
+        WHERE ulower(ticket) = ulower(?)
         ORDER BY started_at DESC, id DESC LIMIT ?
       `,
     )
-    .all(opts.topic ?? '', Math.min(Math.max(opts.last ?? 3, 1), 10)) as ReportRun[];
+    .all(opts.ticket ?? '', Math.min(Math.max(opts.last ?? 3, 1), 10)) as ReportRun[];
 }
 
 /** A run's failed steps, the first ten, with the message each answered with. */

@@ -7,7 +7,6 @@ await import('./helpers/app.js');
 const envs = ['local', 'staging'];
 const caseFile = JSON.stringify({
   ticket: 'AB-80',
-  topic: 'AB-80 Runner flags',
   cases: { C1: { title: 'One', block: [['stock', { purpose: 'verify' }]] } },
 });
 const calls = JSON.stringify([

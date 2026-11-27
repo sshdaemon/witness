@@ -49,7 +49,6 @@ export class Recorder {
     env: string,
     runTag: string,
     about: {
-      topic?: string;
       branch?: string;
       kind?: string;
       ticket?: string;
@@ -71,15 +70,13 @@ export class Recorder {
         .prepare(
           `
             INSERT INTO runs (
-              id, topic, branch, kind, env, run_tag, started_at, app_versions, label, batch_id,
-              lane
+              id, branch, kind, env, run_tag, started_at, app_versions, label, batch_id, lane
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
         )
         .run(
           runId,
-          about.topic?.trim() || null,
           about.branch ?? null,
           about.kind ?? 'test',
           env,
@@ -109,11 +106,7 @@ export class Recorder {
   private caseTicket(given: string | undefined, tool: string): string {
     const ticket = this.ticket ?? given;
     if (!ticket)
-      throw new ToolError(
-        'NO_TICKET',
-        'This run has no ticket.',
-        `Pass ticket to ${tool}, or to session_start.`,
-      );
+      throw new ToolError('NO_TICKET', 'This run has no ticket.', `Pass ticket to ${tool}.`);
     if (given && given.toLowerCase() !== ticket.toLowerCase())
       throw new ToolError(
         'TICKET_MISMATCH',

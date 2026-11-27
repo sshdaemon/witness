@@ -93,11 +93,10 @@ export function registerCaseTools(server: McpServer) {
       title: 'Start a test case',
       description: prose`
           Marks where a case's steps start: every step from this call to its case_end belongs to
-          the case. One case is open at a time. The ticket comes from session_start when left out;
-          given here on a run without one, it becomes the run's ticket and numbers the run (the
-          label stays as it was). Fails with NO_TICKET, TICKET_MISMATCH for another ticket than
-          the run's, CASE_OPEN while another case has no case_end, CASE_ALREADY_RUN for a case
-          this run already recorded, and RUN_FINISHED after run_finish.`,
+          the case. One case is open at a time. The ticket comes from session_start; given here, it
+          must be the same. Fails with TICKET_MISMATCH for another ticket than the run's,
+          CASE_OPEN while another case has no case_end, CASE_ALREADY_RUN for a case this run
+          already recorded, and RUN_FINISHED after run_finish.`,
       input: z.object({ caseId, ticket: ticketId().optional() }),
     },
     ({ caseId: id, ticket }) => {

@@ -113,7 +113,7 @@ describe('tool calls without a browser', () => {
   });
 
   it('refuses an order this session did not place, before touching any page', async () => {
-    await call('session_start', { topic: 'tool catalogue tests', kind: 'tool', env: 'staging' });
+    await call('session_start', { ticket: 'TOOL-catalogue', kind: 'tool', env: 'staging' });
     const r = await call('order_cancel', { reference: 'NOTMINE1' });
     assert.equal(r.ok, false);
     assert.equal(r.code, 'NOT_OWNED');

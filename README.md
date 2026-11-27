@@ -88,7 +88,6 @@ A ticket's test cases live in one JSON file, `<name>-cases.json`, which the runn
 ```json
 {
   "ticket": "AB-12",
-  "topic": "AB-12 Stock limit on the product page",
   "env": { "local": { "storeId": "s-local" }, "staging": { "storeId": "s-staging" } },
   "setup": [
     ["login", { "actor": "seller" }],
@@ -147,7 +146,7 @@ Cases worth running again after their ticket is done go into `suites/<area>.json
 
 `WITNESS_RESULTS_DIR` moves it. Anything outside the server reads it through the read CLI or module, never the database directly: see [docs/read-contract.md](docs/read-contract.md). Runs are removed after 14 days, and runs made only to exercise a tool after 3 (`WITNESS_RETENTION_DAYS`, `WITNESS_TOOL_RETENTION_DAYS`); case results, run numbers and picked evidence are kept.
 
-The viewer (`tsx node_modules/witness/src/ui/server.ts`, on `http://127.0.0.1:4477`, `WITNESS_PORT` to change) lists tickets with the latest result of each case, then topics and runs. A ticket opens to its cases laid out against its runs; a run opens to its case results and steps with their screenshots. It is read-only, listens on the loopback address only and never serves traces, which can hold credentials.
+The viewer (`tsx node_modules/witness/src/ui/server.ts`, on `http://127.0.0.1:4477`, `WITNESS_PORT` to change) lists tickets with the latest result of each case (tool checks in a collapsed section), then the runs. A ticket opens to its cases laid out against its runs; a run opens to its case results and steps with their screenshots. It is read-only, listens on the loopback address only and never serves traces, which can hold credentials.
 
 Other settings: `WITNESS_BROWSER_CHANNEL` (a Playwright browser channel) and `WITNESS_SLOWMO` (milliseconds between browser actions).
 

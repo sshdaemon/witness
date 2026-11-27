@@ -3,7 +3,8 @@ const live = document.querySelector('#live');
 const lightbox = document.querySelector('#lightbox');
 const lightboxImg = document.querySelector('#lightbox-img');
 
-const filters = { topic: null, env: '', verdict: '' };
+// ticket: null for every run, '' for the runs from before every run had a ticket.
+const filters = { ticket: null, env: '', verdict: '' };
 let lastKey = '';
 let routeSeq = 0;
 
@@ -72,6 +73,7 @@ const buildLabel = b =>
   b
     ? `${b.branch ? b.branch.replace(/^(feat|fix|feature)\//, '') : 'detached'}@${b.sha}${b.dirty ? ' +local' : ''}`
     : '';
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const runMs = r => (r.finished_at ? new Date(r.finished_at) - new Date(r.started_at) : null);
 
 async function get(path) {
@@ -92,41 +94,31 @@ async function overview(seq) {
   const q = new URLSearchParams(
     Object.entries({ env: filters.env, verdict: filters.verdict }).filter(([, v]) => v),
   );
-  if (filters.topic !== null) q.set('topic', filters.topic);
-  const [tickets, topics, runs] = await Promise.all([
-    get('/api/tickets'),
-    get('/api/topics'),
-    get(`/api/runs?${q}`),
-  ]);
+  if (filters.ticket !== null) q.set('ticket', filters.ticket);
+  const [tickets, runs] = await Promise.all([get('/api/tickets'), get(`/api/runs?${q}`)]);
   const order = ['PASS', 'FAIL', 'BLOCKED', 'NOT_RUN'];
-  const ticketItem = t => `<li><a class="topic" href="${esc(ticketHref(t.ticket))}">
+  // A ticket with cases shows how its cases stand; one without shows its latest run.
+  const standing = t =>
+    t.cases > 0
+      ? `<span class="counts">${order
+          .filter(v => t.counts[v])
+          .map(v => `<span class="count v-${v}">${ICON[v]} ${t.counts[v]}</span>`)
+          .join('')}</span>`
+      : badge(t.verdict);
+  const ticketItem = t => `<li><a class="entry" href="${esc(ticketHref(t.ticket))}">
       <span class="t">${esc(t.ticket)}</span>
-      <span class="counts">${order
-        .filter(v => t.counts[v])
-        .map(v => `<span class="count v-${v}">${ICON[v]} ${t.counts[v]}</span>`)
-        .join('')}</span>
-      <span class="when muted">${t.cases} case${t.cases === 1 ? '' : 's'} · ${t.runs} run${t.runs === 1 ? '' : 's'} · ${esc(ago(t.latest))}</span>
+      ${standing(t)}
+      <span class="when muted">${t.cases > 0 ? `${plural(t.cases, 'case')} · ` : ''}${plural(t.runs, 'run')} · ${esc(ago(t.latest))}</span>
     </a></li>`;
-
-  const topic = t => {
-    const strip = t.recent
-      .toReversed()
-      .map(
-        r =>
-          `<i class="v-${esc(r.verdict || 'RUNNING')}" title="${esc(r.verdict || 'RUNNING')} · ${esc(fmtTime(r.started_at))}"></i>`,
-      )
-      .join('');
-    return `<li><button class="topic${filters.topic === t.key ? ' selected' : ''}" data-action="pick-topic" data-key="${esc(t.key)}" aria-pressed="${filters.topic === t.key}">
-      <span class="t">${esc(t.title)}</span>
-      <span class="branch mono">${esc(t.branch || '')}</span>
-      <span class="strip" aria-label="Last ${t.recent.length} runs, oldest first">${strip}</span>
-      ${badge(t.latest.verdict)}
-      <span class="when muted">${t.runs} run${t.runs === 1 ? '' : 's'} · ${esc(ago(t.latest.started_at))}</span>
+  const noTicket = tickets.find(t => t.ticket === null);
+  const tested = tickets.filter(t => t.ticket !== null && !t.tool);
+  const tools = tickets.filter(t => t.ticket !== null && t.tool);
+  const noTicketItem =
+    t => `<li><button class="entry${filters.ticket === '' ? ' selected' : ''}" data-action="pick-no-ticket" aria-pressed="${filters.ticket === ''}">
+      <span class="t">No ticket</span>
+      <span class="when muted">${plural(t.runs, 'run')} from before every run had a ticket · ${esc(ago(t.latest))}</span>
     </button></li>`;
-  };
 
-  const selected = filters.topic === null ? null : topics.find(t => t.key === filters.topic);
-  const toolSelected = !!selected?.tool;
   // One line: the build serving the API (what is under test), with the other apps behind a "+N
   // more" hover.
   const served = r => {
@@ -152,8 +144,7 @@ async function overview(seq) {
     .map(
       r => `<tr data-action="open-run" data-id="${esc(r.id)}" tabindex="0">
       <td class="num" title="${esc(fmtTime(r.started_at))}">${esc(fmtTime(r.started_at))}<div class="muted">${esc(ago(r.started_at))}</div></td>
-      ${filters.topic === null ? `<td>${esc(r.topic || 'Untitled')}</td>` : ''}
-      <td>${r.ticket ? `<a href="${esc(ticketHref(r.ticket))}">${esc(runName(r) || r.ticket)}</a>` : esc(r.label || '') || '<span class="muted">–</span>'}</td>
+      <td>${r.ticket ? `<a href="${esc(ticketHref(r.ticket))}">${esc(runName(r) || r.ticket)}</a>` : esc(r.label || '') || '<span class="muted">No ticket</span>'}</td>
       <td>${badge(r.verdict)}</td>
       <td>${esc(r.env)}</td>
       <td class="mono">${esc(r.branch || '') || '<span class="muted">–</span>'}</td>
@@ -168,39 +159,27 @@ async function overview(seq) {
   const opt = (value, label, current) =>
     `<option value="${esc(value)}"${value === current ? ' selected' : ''}>${esc(label)}</option>`;
   render(
-    JSON.stringify([tickets, topics, runs, filters]),
+    JSON.stringify([tickets, runs, filters]),
     `
     <h1>What we are testing</h1>
     ${
-      tickets.length > 0
-        ? `<h2>Tickets</h2><p class="note">The latest result of each case of the ticket.</p><ul class="topics">${tickets.map(ticketItem).join('')}</ul>`
-        : ''
-    }
-    <h2>Topics</h2>
-    ${
-      topics.some(t => !t.tool)
-        ? `<ul class="topics">${topics
-            .filter(t => !t.tool)
-            .map(topic)
-            .join('')}</ul>`
-        : `<div class="empty">Nothing tested yet. A session starts a topic with session_start.</div>`
+      tested.length > 0 || noTicket
+        ? `<ul class="entries">${tested.map(ticketItem).join('')}${noTicket ? noTicketItem(noTicket) : ''}</ul>`
+        : `<div class="empty">Nothing tested yet. A session starts a ticket's run with session_start.</div>`
     }
     ${
-      topics.some(t => t.tool)
-        ? `<details class="tooling"${toolSelected ? ' open' : ''}><summary>Tool development and checks (${topics.filter(t => t.tool).length})</summary><ul class="topics">${topics
-            .filter(t => t.tool)
-            .map(topic)
-            .join('')}</ul></details>`
+      tools.length > 0
+        ? `<details class="tooling"><summary>Tool checks (${tools.length})</summary><ul class="entries">${tools.map(ticketItem).join('')}</ul></details>`
         : ''
     }
-    <h2>Runs${selected ? ` · ${esc(selected.title)}` : ''}</h2>
+    <h2>Runs${filters.ticket === '' ? ' · no ticket' : ''}</h2>
     <div class="filters">
-      ${filters.topic !== null ? `<button class="btn" data-action="all-topics">Show runs of all topics</button>` : ''}
+      ${filters.ticket !== null ? `<button class="btn" data-action="all-runs">Show all runs</button>` : ''}
       <select data-filter="env" aria-label="Environment"><option value="">All environments</option>${opt('local', 'local', filters.env)}${opt('staging', 'staging', filters.env)}</select>
       <select data-filter="verdict" aria-label="Verdict"><option value="">All verdicts</option>${['PASS', 'FAIL', 'BLOCKED', 'ABORTED'].map(v => opt(v, v, filters.verdict)).join('')}</select>
       ${filters.env || filters.verdict ? `<button class="btn" data-action="clear-filters">Clear filters</button>` : ''}
     </div>
-    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Started</th>${filters.topic === null ? '<th>Topic</th>' : ''}<th>Run</th><th>Result</th><th>Env</th><th>Branch tested</th><th>Served from</th><th>Steps</th><th>Duration</th><th>What was checked</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No runs match.</div>`}
+    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Started</th><th>Run</th><th>Result</th><th>Env</th><th>Branch tested</th><th>Served from</th><th>Steps</th><th>Duration</th><th>What was checked</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No runs match.</div>`}
   `,
     seq,
   );
@@ -334,8 +313,8 @@ async function runPage(id, seq) {
   render(
     JSON.stringify(d),
     `
-    <p class="crumbs"><a href="#/">← Back to topics and runs</a></p>
-    <div class="head"><h1>${esc(r.topic || 'Untitled run')}</h1>${badge(r.verdict)}</div>
+    <p class="crumbs"><a href="#/">← Back to tickets and runs</a></p>
+    <div class="head"><h1>${esc(runName(r) || r.ticket || 'Run without a ticket')}</h1>${badge(r.verdict)}</div>
     <div class="meta">
       ${r.ticket ? `<span><a href="${esc(ticketHref(r.ticket))}">${esc(r.ticket)}</a>${r.run_number ? ` run ${esc(r.run_number)}` : ''}</span>` : ''}
       ${r.label && !r.ticket ? `<span>${esc(r.label)}</span>` : ''}
@@ -522,7 +501,7 @@ async function evidencePage(seq) {
   render(
     JSON.stringify(['evidence', tickets]),
     `
-    <p class="crumbs"><a href="#/">← Back to topics and runs</a></p>
+    <p class="crumbs"><a href="#/">← Back to tickets and runs</a></p>
     <h1>Evidence</h1>
     <p class="sub">Screenshots picked for tickets with evidence_pick. They are copies, kept after their runs are removed.</p>
     ${
@@ -543,13 +522,8 @@ async function route() {
   const seq = ++routeSeq;
   const hash = location.hash.replace(/^#\/?/, '');
   const run = /^run\/([0-9a-z-]+)$/.exec(hash);
-  const topic = /^topic\/(.*)$/.exec(hash);
   const ticket = /^ticket\/([^/]+)(?:\/case\/([^/]+))?$/.exec(hash);
-  try {
-    filters.topic = topic ? decodeURIComponent(topic[1]) : null;
-  } catch {
-    filters.topic = null; // a hand-edited or truncated link
-  }
+  filters.ticket = hash === 'no-ticket' ? '' : null;
   try {
     if (run) await runPage(run[1], seq);
     else if (ticket && ticket[2])
@@ -574,10 +548,8 @@ document.addEventListener('click', e => {
   if (!el) return;
   const { action, id, src, text } = el.dataset;
   if (action === 'open-run') location.hash = `#/run/${id}`;
-  if (action === 'pick-topic')
-    location.hash =
-      filters.topic === el.dataset.key ? '#/' : `#/topic/${encodeURIComponent(el.dataset.key)}`;
-  if (action === 'all-topics') location.hash = '#/';
+  if (action === 'pick-no-ticket') location.hash = filters.ticket === '' ? '#/' : '#/no-ticket';
+  if (action === 'all-runs') location.hash = '#/';
   if (action === 'clear-filters') {
     Object.assign(filters, { env: '', verdict: '' });
     lastKey = '';

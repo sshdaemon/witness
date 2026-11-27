@@ -61,7 +61,7 @@ describe('version 1 store', () => {
       3,
     );
     assert.deepEqual(
-      listRuns({ topic: 'ab-7 badges' }).map(r => (r as { id: string }).id),
+      listRuns({}).map(r => (r as { id: string }).id),
       ['r1'],
     );
     assert.deepEqual(getRun('r1')?.cases, []);

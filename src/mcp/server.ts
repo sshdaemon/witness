@@ -42,25 +42,15 @@ export function buildServer(): McpServer {
     {
       title: 'Start a test session',
       description: prose`
-          Opens a run record and returns a run tag. Say what you are testing in topic, and pass
-          the ticket: the store gives the run the ticket's next number and labels it '<ticket>
-          run <n>', so every name the tools make reads '<tag> <label> <what it is>'. Pass label
-          only for a run without a ticket (for example 'PR 42 run 1'). The tools put namePrefix
-          (the tag, then the label) in front of the names and messages they build; a name a tool
-          uses exactly as given (a person's first name) should start with it, so rows from earlier
-          runs are never confused with yours and screenshots say what they show. Call before
+          Opens a run record for a ticket and returns a run tag. The store gives the run the
+          ticket's next number and labels it '<ticket> run <n>', so every name the tools make
+          reads '<tag> <label> <what it is>'. Every run has a ticket: a pull request is 'PR-42',
+          a check of a tool being written 'TOOL-<area>'. The tools put namePrefix (the tag, then
+          the label) in front of the names and messages they build; a name a tool uses exactly as
+          given (a person's first name) should start with it, so rows from earlier runs are never
+          confused with yours and screenshots say what they show. Call before
           login.`,
       input: z.object({
-        topic: z
-          .string()
-          .trim()
-          .min(3)
-          .max(120)
-          .describe(
-            prose`
-              What is being tested, for example 'provider filter on the search page'. Runs
-              are grouped by it.`,
-          ),
         branch: z.string().max(120).optional().describe('The branch under test, for the record.'),
         kind: z
           .enum(['test', 'tool'])
@@ -81,14 +71,12 @@ export function buildServer(): McpServer {
               for a run with a failed step or a verdict other than PASS.`,
           ),
         label: runLabel.optional(),
-        ticket: ticketId()
-          .optional()
-          .describe(
-            prose`
-              The ticket or pull request whose cases this run tests, for example
-              ${ticketExamples()}. The run gets the ticket's next run number, and the label
-              '<ticket> run <n>' unless label is given.`,
-          ),
+        ticket: ticketId().describe(
+          prose`
+            The ticket or pull request this run tests, for example ${ticketExamples()}, or
+            'TOOL-<area>' when only exercising a tool. Runs are grouped by it. The run gets the
+            ticket's next run number, and the label '<ticket> run <n>' unless label is given.`,
+        ),
         firstRun: z
           .number()
           .int()
@@ -97,7 +85,7 @@ export function buildServer(): McpServer {
           .optional()
           .describe(
             prose`
-              With ticket, the lowest number this run may get: one more than the last run
+              The lowest number this run may get: one more than the last run
               numbered by hand in the ticket's QA ledger. Needed once, for a ticket tested before
               runs were numbered.`,
           ),
@@ -107,17 +95,16 @@ export function buildServer(): McpServer {
           .optional()
           .describe(
             prose`
-              With ticket, the batch of parallel lanes this run belongs to (the steps runner sets
+              The batch of parallel lanes this run belongs to (the steps runner sets
               it): every lane of a batch shares one run number and is labelled '<ticket> run <n>
               lane <lane>'.`,
           ),
         lane: z.number().int().min(1).max(9).optional().describe("This run's lane in its batch."),
       }),
     },
-    async ({ env, topic, branch, kind, headed, trace, label, ticket, firstRun, batch, lane }) => {
+    async ({ env, branch, kind, headed, trace, label, ticket, firstRun, batch, lane }) => {
       const s = await startSession({
         env: env as EnvName | undefined,
-        topic,
         branch,
         kind,
         headed,
@@ -290,10 +277,9 @@ export function buildServer(): McpServer {
     {
       title: 'List earlier runs',
       description: prose`
-          Run history from the results store, newest first. Filter by topic, ticket, environment
-          or verdict.`,
+          Run history from the results store, newest first. Filter by ticket, environment or
+          verdict.`,
       input: z.object({
-        topic: z.string().optional(),
         ticket: ticketId().optional(),
         env: z.enum(def.envs).optional(),
         verdict: z.enum(['PASS', 'FAIL', 'BLOCKED', 'ABORTED']).optional(),
@@ -332,32 +318,32 @@ export function buildServer(): McpServer {
     server,
     'report',
     {
-      title: 'Markdown report of a run or a topic',
+      title: 'Markdown report of a run or a ticket',
       description: prose`
           Raw notes for drafting a ticket or pull request comment when asked, not for pasting as
           is: the verdict, what was checked, the builds served and any failed steps. Pass runId
-          for one run, or topic for its latest runs. Defaults to the run in progress or just
+          for one run, or ticket for its latest runs. Defaults to the run in progress or just
           ended.`,
       input: z.object({
         runId: z.string().optional(),
-        topic: z.string().optional(),
+        ticket: ticketId().optional(),
         last: z
           .number()
           .int()
           .min(1)
           .max(10)
           .optional()
-          .describe('With topic: how many latest runs to include (default 3).'),
+          .describe('With ticket: how many latest runs to include (default 3).'),
       }),
       readOnly: true,
       idempotent: true,
     },
-    ({ runId, topic, last }) => {
-      const id = runId ?? (topic ? undefined : (getSession() ?? recordingSession())?.runId);
-      if (!id && !topic)
-        throw new ToolError('NOTHING_TO_REPORT', 'No run in progress.', 'Pass runId or topic.');
-      const markdown = buildReport({ runId: id, topic, last });
-      if (!markdown) throw new ToolError('RUN_NOT_FOUND', `Nothing recorded for ${id ?? topic}.`);
+    ({ runId, ticket, last }) => {
+      const id = runId ?? (ticket ? undefined : (getSession() ?? recordingSession())?.runId);
+      if (!id && !ticket)
+        throw new ToolError('NOTHING_TO_REPORT', 'No run in progress.', 'Pass runId or ticket.');
+      const markdown = buildReport({ runId: id, ticket, last });
+      if (!markdown) throw new ToolError('RUN_NOT_FOUND', `Nothing recorded for ${id ?? ticket}.`);
       return { data: { markdown } };
     },
   );

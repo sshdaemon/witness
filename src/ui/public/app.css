@@ -122,14 +122,14 @@ h2 {
   margin: 0 0 14px;
 }
 
-.topics {
+.entries {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 6px;
 }
-.topic {
+.entry {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -144,18 +144,18 @@ h2 {
   border-radius: 10px;
   padding: 10px 14px;
 }
-.topic:hover {
+.entry:hover {
   border-color: var(--accent);
 }
-.topic.selected {
+.entry.selected {
   border-color: var(--accent);
   box-shadow: inset 3px 0 0 var(--accent);
 }
-.topic .t {
+.entry .t {
   font-weight: 600;
   flex: 1 1 260px;
 }
-.topic .branch {
+.entry .branch {
   color: var(--muted);
   font-size: 12px;
   flex: 0 1 240px;
@@ -163,7 +163,7 @@ h2 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.topic .when {
+.entry .when {
   font-size: 13px;
   min-width: 130px;
   text-align: right;
@@ -500,7 +500,7 @@ pre {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .topic,
+  .entry,
   tbody tr {
     transition:
       border-color 0.15s,
@@ -628,7 +628,7 @@ details.rowchecks .checks {
 .count.v-NOT_RUN {
   color: var(--neutral);
 }
-a.topic {
+a.entry {
   text-decoration: none;
   color: inherit;
 }

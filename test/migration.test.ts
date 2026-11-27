@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { describe, it } from 'node:test';
 import { prose } from '../src/prose.js';
 
-// A store made before topics, branches and kinds were recorded.
+// A store made before branches and kinds were recorded.
 const dir = mkdtempSync(join(tmpdir(), 'witness-migration-'));
 process.env.WITNESS_RESULTS_DIR = dir;
 const old = new DatabaseSync(join(dir, 'witness.sqlite'));
@@ -54,14 +54,14 @@ const { store, listRuns, SCHEMA_VERSION } = await import('../src/mcp/store.js');
 describe('older result store', () => {
   it(
     prose`
-    gains the new columns and keeps its runs, grouped under the use-case slug they recorded`,
+    gains the new columns and keeps its runs`,
     () => {
       const cols = new Set(
         (store().prepare('PRAGMA table_info(runs)').all() as { name: string }[]).map(c => c.name),
       );
       for (const c of ['app_versions', 'topic', 'branch', 'kind']) assert.ok(cols.has(c), c);
       assert.deepEqual(
-        listRuns({ topic: 'OLD-case' }).map(r => (r as { id: string }).id),
+        listRuns({}).map(r => (r as { id: string }).id),
         ['r1'],
       );
     },
