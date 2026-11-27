@@ -1,7 +1,6 @@
 import { html, LitElement, nothing } from 'lit';
 import type { Step } from './api.js';
-import { shortArgs } from './format.js';
-import { stepError, stepShots } from './parts/steps.js';
+import { stepArgs, stepError, stepShots, stepTitle } from './parts/steps.js';
 import { verdict } from './parts/verdict.js';
 
 /** One screenshot of a step, or the step alone when it took none. */
@@ -20,7 +19,7 @@ export const slidesOf = (steps: Step[]): Slide[] =>
   });
 
 /**
- * Steps one at a time, full screen: ← → (or PageUp / PageDown, space) move, Home and End jump to
+ * Steps one at a time, over the page: ← → (or PageUp / PageDown, space) move, Home and End jump to
  * the ends, Esc leaves.
  */
 export class WitnessPresent extends LitElement {
@@ -56,7 +55,6 @@ export class WitnessPresent extends LitElement {
     this.show(index);
     document.body.classList.add('presenting');
     window.addEventListener('keydown', this.onKey);
-    this.requestFullscreen?.().catch(() => {});
   }
 
   close() {
@@ -64,7 +62,6 @@ export class WitnessPresent extends LitElement {
     this.slides = [];
     document.body.classList.remove('presenting');
     window.removeEventListener('keydown', this.onKey);
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     this.dispatchEvent(new Event('closed'));
   }
 
@@ -98,21 +95,10 @@ export class WitnessPresent extends LitElement {
     this.show(move());
   };
 
-  override connectedCallback() {
-    super.connectedCallback();
-    // Leaving full screen with the browser's own Esc also leaves the presentation.
-    document.addEventListener('fullscreenchange', this.onFullscreen);
-  }
-
   override disconnectedCallback() {
-    document.removeEventListener('fullscreenchange', this.onFullscreen);
     window.removeEventListener('keydown', this.onKey);
     super.disconnectedCallback();
   }
-
-  private onFullscreen = () => {
-    if (!document.fullscreenElement && this.isOpen) this.close();
-  };
 
   protected override updated() {
     this.querySelector('.film.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -134,8 +120,8 @@ export class WitnessPresent extends LitElement {
         ></sl-icon-button>
       </div>
       <div class="p-step ${s.ok ? '' : 'bad'}">
-        <span class="seq">${s.seq}</span><span class="tool">${s.tool}</span>
-        <span class="args">${shortArgs(s.args)}</span>
+        <span class="seq">${s.seq}</span><span class="what">${stepTitle(s)}</span>
+        <span class="args">${stepArgs(s)}</span>
         ${
           x.frames > 1
             ? html`<span class="muted">screenshot ${x.frame + 1} of ${x.frames}</span>`
@@ -154,7 +140,7 @@ export class WitnessPresent extends LitElement {
         ></sl-icon-button>
         ${
           x.src
-            ? html`<img class="p-img" src=${x.src} alt="Step ${s.seq}, ${s.tool}" />`
+            ? html`<img class="p-img" src=${x.src} alt="Step ${s.seq}, ${stepTitle(s)}" />`
             : html`<div class="p-noimg muted">This step took no screenshot.</div>`
         }
         <sl-icon-button

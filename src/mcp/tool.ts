@@ -136,6 +136,7 @@ export function defineTool<S extends z.ZodObject>(
         try {
           const step = recordingSession()?.recorder.step({
             tool: name,
+            title: cfg.title,
             args,
             ok,
             errorCode: code,

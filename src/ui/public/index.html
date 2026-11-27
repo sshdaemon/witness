@@ -17,9 +17,16 @@
         <span>witness</span>
       </a>
       <nav class="nav">
-        <a href="#/">Tickets</a>
-        <a href="#/evidence">Evidence</a>
         <span class="live" id="live" title="The page refreshes every 5 seconds">live</span>
+        <sl-dropdown id="menu" placement="bottom-end">
+          <sl-icon-button slot="trigger" name="list" label="Menu"></sl-icon-button>
+          <sl-menu>
+            <sl-menu-item value="#/">Tickets</sl-menu-item>
+            <sl-menu-item value="#/tools">Tool checks</sl-menu-item>
+            <sl-menu-item value="#/no-ticket">Runs without a ticket</sl-menu-item>
+            <sl-menu-item value="#/evidence">Evidence</sl-menu-item>
+          </sl-menu>
+        </sl-dropdown>
       </nav>
     </header>
     <main><witness-app aria-live="polite"></witness-app></main>

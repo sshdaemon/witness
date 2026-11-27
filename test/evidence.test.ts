@@ -13,6 +13,11 @@ const { listEvidence, markPosted, pickEvidence, removeEvidence } =
   await import('../src/mcp/evidence.js');
 const { ToolError } = await import('../src/errors.js');
 const { createViewer } = await import('../src/ui/server.js');
+const { store } = await import('../src/mcp/store.js');
+
+store()
+  .prepare("INSERT INTO cases (ticket, case_id, title, updated_at) VALUES ('AB-1', 'C3', ?, ?)")
+  .run('Orders show up', '2026-10-16T10:00:00Z');
 
 const recorder = new Recorder('20261016100000-evd', 'staging', 'evd', {});
 recorder.beginCall('orders_read');
@@ -156,11 +161,12 @@ describe('evidence', () => {
       try {
         const tickets = (await (await fetch(`${url}/api/evidence`)).json()) as {
           ticket: string;
-          items: { url: string; postedUrl: string | null }[];
+          items: { url: string; postedUrl: string | null; caseTitle: string | null }[];
         }[];
         assert.deepEqual(tickets.map(t => t.ticket).toSorted(), ['AB-1', 'AB-2', 'AB-3']);
         const first = tickets.find(t => t.ticket === 'AB-1')!.items[0]!;
         assert.equal(first.postedUrl, 'https://uploads.example.test/a.png');
+        assert.equal(first.caseTitle, 'Orders show up');
         const img = await fetch(`${url}${first.url}`);
         assert.equal(img.status, 200);
         assert.equal(await img.text(), 'verify');

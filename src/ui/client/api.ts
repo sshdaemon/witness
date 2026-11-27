@@ -121,6 +121,8 @@ export type CaseDetail = {
 export type Step = {
   seq: number;
   tool: string;
+  /** The tool's own title, such as "Create a booking"; null for steps recorded before titles. */
+  title: string | null;
   args: Record<string, unknown> | null;
   ok: boolean;
   errorCode: string | null;
@@ -148,14 +150,19 @@ export type RunDetail = {
     openWith: string;
     url: string | null;
   }[];
-  cases: (CaseResult & { ticket: string; caseId: string })[];
+  cases: (CaseResult & { ticket: string; caseId: string; title: string | null })[];
   lanes: { id: string; lane: number | null; verdict: Verdict | null }[];
 };
 
 export type EvidenceTicket = {
   ticket: string;
   latest: string;
-  items: (Picked & { case: string | null; tool: string | null; file: string })[];
+  items: (Picked & {
+    case: string | null;
+    caseTitle: string | null;
+    tool: string | null;
+    file: string;
+  })[];
 };
 
 export async function get<T>(path: string): Promise<T> {

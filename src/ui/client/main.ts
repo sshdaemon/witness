@@ -7,8 +7,11 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/card/card.js';
 import '@shoelace-style/shoelace/dist/components/copy-button/copy-button.js';
 import '@shoelace-style/shoelace/dist/components/details/details.js';
+import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+import '@shoelace-style/shoelace/dist/components/menu/menu.js';
+import '@shoelace-style/shoelace/dist/components/menu-item/menu-item.js';
 import '@shoelace-style/shoelace/dist/components/tag/tag.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
@@ -16,7 +19,13 @@ import { caseView, loadCase } from './pages/case.js';
 import { evidenceView, loadEvidence } from './pages/evidence.js';
 import { loadRun, runView } from './pages/run.js';
 import { loadTicket, ticketView } from './pages/ticket.js';
-import { loadNoTicket, loadTickets, noTicketView, ticketsView } from './pages/tickets.js';
+import {
+  loadNoTicket,
+  loadTickets,
+  noTicketView,
+  ticketsView,
+  toolsView,
+} from './pages/tickets.js';
 import { WitnessPresent, type Slide } from './present.js';
 
 // Shoelace's icons and the rest of its assets are served by the viewer itself.
@@ -28,6 +37,12 @@ const applyScheme = () =>
   document.documentElement.classList.toggle('sl-theme-dark', scheme.matches);
 applyScheme();
 scheme.addEventListener('change', applyScheme);
+
+// The header's menu: each item's value is the page it opens.
+document.querySelector('#menu')?.addEventListener('sl-select', e => {
+  const value = (e as CustomEvent<{ item: { value: string } }>).detail.item.value;
+  location.hash = value;
+});
 
 type Page = { key: string; load: () => Promise<unknown>; view: (data: never) => TemplateResult };
 
@@ -90,6 +105,7 @@ class WitnessApp extends LitElement {
     if (t !== undefined) return { key: hash, load: () => loadTicket(t), view: ticketView };
     if (hash === 'evidence') return { key: hash, load: loadEvidence, view: evidenceView };
     if (hash === 'no-ticket') return { key: hash, load: loadNoTicket, view: noTicketView };
+    if (hash === 'tools') return { key: hash, load: loadTickets, view: toolsView };
     const n = Number(page?.[1] ?? 1);
     return { key: `page/${n}`, load: loadTickets, view: d => ticketsView(d, n) };
   }

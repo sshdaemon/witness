@@ -1,11 +1,10 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { api, type RunRow, type TicketDetail } from '../api.js';
-import { ago, buildsLine, dur, fmtTime, plural, runName } from '../format.js';
+import { ago, buildsLine, dur, fmtTime, plural } from '../format.js';
 import { caseHref, go, runHref } from '../links.js';
-import { summaryLines } from '../parts/checks.js';
 import { crumbs } from '../parts/layout.js';
 import { runsTable, served } from '../parts/runs.js';
-import { barOf, countsOf, dot, ICON, resultCell, tally, verdict, word } from '../parts/verdict.js';
+import { barOf, countsOf, ICON, resultCell, tally, verdict, word } from '../parts/verdict.js';
 
 export type TicketData = { detail: TicketDetail; runs: RunRow[] };
 
@@ -38,11 +37,22 @@ function lastRunCard(column: Column, lanes: RunRow[], inLast: Partial<Record<str
       : null;
   const steps = lanes.reduce((n, l) => n + l.steps, 0);
   const failed = lanes.reduce((n, l) => n + l.failed_steps, 0);
-  return html`<sl-card class="last-run">
+  // One run opens with a click anywhere on the card; a batch links each of its lanes instead.
+  const openRun = (e: Event) => {
+    if (!one || (e.target as Element).closest('a')) return;
+    if (e instanceof KeyboardEvent && e.key !== 'Enter') return;
+    go(runHref(one.id));
+  };
+  return html`<sl-card
+    class="last-run ${one ? 'clickable' : ''}"
+    tabindex=${one ? '0' : nothing}
+    @click=${openRun}
+    @keydown=${openRun}
+  >
     <div slot="header" class="card-head">
       <span>
-        ${one ? html`<a href=${runHref(one.id)}>${name}</a>` : html`<strong>${name}</strong>`}
-        <span class="muted">latest run${first ? ` · ${fmtTime(first.started_at)}` : ''}</span>
+        <strong>${name}</strong>
+        <span class="muted">latest run</span>
         ${
           lanes.length > 1
             ? html`<span class="lane-links"
@@ -58,7 +68,10 @@ function lastRunCard(column: Column, lanes: RunRow[], inLast: Partial<Record<str
             : nothing
         }
       </span>
-      ${verdict(column.verdict)}
+      <span class="right">
+        ${verdict(column.verdict)}
+        ${one ? html`<sl-icon name="chevron-right" class="go"></sl-icon>` : nothing}
+      </span>
     </div>
     ${
       first
@@ -80,16 +93,6 @@ function lastRunCard(column: Column, lanes: RunRow[], inLast: Partial<Record<str
         : html`<p class="muted">Removed by retention: only its case results are kept.</p>
             ${Object.keys(inLast).length > 0 ? countsOf(inLast) : nothing}`
     }
-    ${lanes
-      .filter(l => l.summary)
-      .toReversed()
-      .map(
-        l =>
-          html`<div class="last-summary">
-            ${lanes.length > 1 ? html`<strong>${runName(l)}</strong>` : nothing}
-            ${summaryLines(l.summary!)}
-          </div>`,
-      )}
   </sl-card>`;
 }
 
@@ -140,10 +143,8 @@ function grid(d: TicketDetail) {
           ${d.cases.map(
             c =>
               html`<tr>
-                <td>
-                  <a class="cid" href=${caseHref(d.ticket, c.caseId)} title=${c.title ?? ''}
-                    >${c.caseId}</a
-                  >
+                <td class="case-name">
+                  <a href=${caseHref(d.ticket, c.caseId)}>${c.title ?? `Case ${c.caseId}`}</a>
                 </td>
                 ${d.runs.map(r => {
                   const x = c.cells[r.id];
@@ -177,29 +178,24 @@ export function ticketView({ detail: d, runs }: TicketData) {
 
   const caseRow = (c: TicketDetail['cases'][number]) => {
     const href = caseHref(d.ticket, c.caseId);
-    const x = lastColumn ? c.cells[lastColumn.id] : undefined;
     const now = c.current;
+    // Said only when the case did not run in the newest run, so its result is an older one.
+    const older = now?.runNumber && lastColumn && !c.cells[lastColumn.id];
     return html`<tr
       class="link"
       tabindex="0"
       @click=${() => go(href)}
       @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && go(href)}
     >
-      <td class="case">
-        <span class="cid">${c.caseId}</span>
-        <span>${c.title ?? html`<span class="muted">no title</span>`}</span>
-      </td>
+      <td>${c.title ?? `Case ${c.caseId}`}</td>
       <td>
         ${
           now
-            ? resultCell(now, now.olderBuild ? buildsLine(now.build) : undefined)
+            ? html`${resultCell(now, now.olderBuild ? buildsLine(now.build) : undefined)}
+              ${older ? html`<span class="muted small">from #${now.runNumber}</span>` : nothing}`
             : html`<span class="muted">never run</span>`
         }
       </td>
-      <td class="num">
-        ${now?.runNumber ? html`<span class="muted">#${now.runNumber}</span>` : nothing}
-      </td>
-      <td>${x ? dot(x.result, word(x.result)) : html`<span class="muted">–</span>`}</td>
       <td class="num">
         ${c.evidence ? html`<sl-tag size="small">${plural(c.evidence, 'shot')}</sl-tag>` : nothing}
       </td>
@@ -231,9 +227,7 @@ export function ticketView({ detail: d, runs }: TicketData) {
                 <thead>
                   <tr>
                     <th>Use case</th>
-                    <th>Current result</th>
-                    <th>From</th>
-                    <th>Last run</th>
+                    <th>Result</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -243,8 +237,8 @@ export function ticketView({ detail: d, runs }: TicketData) {
               </table>
             </div>
             <p class="note">
-              Current result is each case's latest, from the run in From. Hover an icon next to it
-              for who judged it, or whether it last ran on other builds than the newest run.
+              Each case's latest result; "from #n" when the newest run did not include it. Hover an
+              icon for who judged it, or whether it last ran on older builds.
             </p>`
         : html`<div class="empty">No cases recorded for this ticket; its runs are below.</div>`
     }

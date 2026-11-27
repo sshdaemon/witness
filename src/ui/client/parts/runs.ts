@@ -45,7 +45,7 @@ export const runsTable = (list: RunRow[]) =>
                   @click=${() => go(runHref(r.id))}
                   @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && go(runHref(r.id))}
                 >
-                  <td class="run-no"><a href=${runHref(r.id)}>${runName(r) || 'run'}</a></td>
+                  <td class="run-no">${runName(r) || 'run'}</td>
                   <td>${verdict(r.verdict)}</td>
                   <td class="num" title=${ago(r.started_at)}>${fmtTime(r.started_at)}</td>
                   <td>${r.env}</td>

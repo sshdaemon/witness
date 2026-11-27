@@ -1,10 +1,10 @@
 import { html, nothing } from 'lit';
 import { api, type CaseDetail, type CaseRun, type Step } from '../api.js';
-import { buildsLine, dur, plural, ranAt, shortArgs } from '../format.js';
+import { buildsLine, plural, ranAt } from '../format.js';
 import { caseHref, runHref, ticketHref } from '../links.js';
 import { checkList } from '../parts/checks.js';
 import { crumbs, empty } from '../parts/layout.js';
-import { stepError, stepShots } from '../parts/steps.js';
+import { shownSteps, stepItem } from '../parts/steps.js';
 import { dot, resultCell, verdict, word } from '../parts/verdict.js';
 import { slidesOf, type Slide } from '../present.js';
 
@@ -17,7 +17,8 @@ export async function loadCase(ticket: string, caseId: string, runId?: string): 
   const chosen = newestFirst.find(h => h.runId === runId) ?? newestFirst[0];
   const range = chosen?.run ? chosen.steps : null;
   const run = range ? await api.run(chosen!.runId) : null;
-  const steps = run && range ? run.steps.filter(s => s.seq >= range.from && s.seq <= range.to) : [];
+  const steps =
+    run && range ? shownSteps(run.steps.filter(s => s.seq >= range.from && s.seq <= range.to)) : [];
   return { detail, chosen, steps };
 }
 
@@ -66,7 +67,7 @@ export type CaseActions = { present: (slides: Slide[], index: number, title: str
 /** A case: what it checks, a run picker, the chosen run's result and steps, and presentation. */
 export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseActions) {
   const def = d.definition;
-  const title = `${d.caseId}${def?.title ? ` · ${def.title}` : ''}`;
+  const title = def?.title ?? `Case ${d.caseId}`;
   const newestFirst = d.history.toReversed();
   const slides = slidesOf(steps);
   const deckTitle = `${title}${chosen?.runNumber ? ` · run #${chosen.runNumber}` : ''}`;
@@ -140,45 +141,18 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
       }
     </sl-card>`;
 
-  const stepItem = (s: Step) =>
-    html`<li class="step ${s.ok ? '' : 'bad'}">
-      <div class="row">
-        <span class="seq">${s.seq}</span>
-        <span class="tool">${s.tool}</span>
-        <span class="args" title=${shortArgs(s.args)}>${shortArgs(s.args)}</span>
-        <span class="spacer"></span>
-        <span class="muted mono">${dur(s.durationMs)}</span>
-        ${s.ok ? nothing : verdict('FAIL')}
-      </div>
-      ${stepError(s)}
-      ${
-        stepShots(s).length > 0
-          ? html`<div class="thumbs">
-              ${stepShots(s).map(
-                (src, i) =>
-                  html`<img
-                    class="thumb"
-                    loading="lazy"
-                    src=${src}
-                    alt="Screenshot ${i + 1} of step ${s.seq}, ${s.tool}"
-                    @click=${() => open(slideAt(s.seq, i))}
-                  />`,
-              )}
-            </div>`
-          : nothing
-      }
-    </li>`;
+  const step = (s: Step) => stepItem(s, (seq, frame) => open(slideAt(seq, frame)));
 
   return html`
     ${crumbs([
       ['Tickets', '#/'],
       [d.ticket, ticketHref(d.ticket)],
-      [d.caseId, null],
+      [title, null],
     ])}
     <div class="head">
       <div class="titles">
-        <div class="tid">${d.ticket} · ${d.caseId}</div>
-        <h1>${def?.title ?? d.caseId}</h1>
+        <div class="tid">${d.ticket}</div>
+        <h1>${title}</h1>
       </div>
       ${newestFirst[0] ? verdict(newestFirst[0].result) : nothing}
     </div>
@@ -191,7 +165,7 @@ export function caseView({ detail: d, chosen, steps }: CaseData, act: CaseAction
               steps.length > 0
                 ? html`<h2>Steps in this run</h2>
                     <ol class="steps">
-                      ${steps.map(stepItem)}
+                      ${steps.map(step)}
                     </ol>`
                 : nothing
             }

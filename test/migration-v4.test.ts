@@ -59,6 +59,13 @@ old.close();
 const { store } = await import('../src/mcp/store.js');
 
 describe('version 3 store', () => {
+  it('gives steps a column for the title of the tool they called', () => {
+    const cols = (store().prepare('PRAGMA table_info(steps)').all() as { name: string }[]).map(
+      c => c.name,
+    );
+    assert.ok(cols.includes('title'));
+  });
+
   it("gives each ticket its newest topic as its title, without the ticket's id", () => {
     const rows = store()
       .prepare('SELECT ticket, title FROM ticket_titles ORDER BY ticket')

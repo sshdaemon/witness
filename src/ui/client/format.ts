@@ -58,9 +58,3 @@ export const ranAt = (started: string | null | undefined, finished: string | nul
   const took = finished ? dur(new Date(finished).getTime() - new Date(started).getTime()) : '';
   return `${fmtTime(started)} · ${took || 'still running'}`;
 };
-
-export const shortArgs = (args: Record<string, unknown> | null) =>
-  Object.entries(args ?? {})
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-    .join(', ');

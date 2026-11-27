@@ -124,6 +124,7 @@ export function runDetail(
   ).map(s => ({
     seq: s.seq,
     tool: s.tool,
+    title: (s.title as string | null | undefined) ?? null,
     args: parse(s.args_json as string),
     ok: s.ok === 1,
     errorCode: s.error_code,
@@ -174,7 +175,12 @@ export function runDetail(
             `,
           )
           .all(id) as ResultRow[]
-      ).map(r => ({ ticket: r.ticket, caseId: r.case_id, ...caseResult(r) }))
+      ).map(r => ({
+        ticket: r.ticket,
+        caseId: r.case_id,
+        title: caseTitle(d, r.ticket, r.case_id),
+        ...caseResult(r),
+      }))
     : [];
   const { topic: _topic, use_case_id: _useCase, ...own } = run;
   return {
@@ -194,6 +200,21 @@ export function runDetail(
         : [],
   };
 }
+
+/** A case's title from its definition, when it has one. */
+const caseTitle = (d: DatabaseSync, ticket: string, caseId: string) =>
+  hasTable(d, 'cases')
+    ? ((
+        d
+          .prepare(
+            `
+              SELECT title FROM cases
+              WHERE ulower(ticket) = ulower(?) AND ulower(case_id) = ulower(?)
+            `,
+          )
+          .get(ticket, caseId) as { title: string | null } | undefined
+      )?.title ?? null)
+    : null;
 
 const hasTable = (d: DatabaseSync, name: string) =>
   !!d.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
@@ -613,6 +634,16 @@ export function evidence(links: Links = FILES) {
   const rows = d.prepare('SELECT * FROM evidence ORDER BY id').all() as EvidenceRow[];
   const byTicket = new Map<string, EvidenceRow[]>();
   for (const r of rows) byTicket.set(r.ticket, [...(byTicket.get(r.ticket) ?? []), r]);
+  const titleOf = new Map(
+    (hasTable(d, 'cases')
+      ? (d.prepare('SELECT ticket, case_id, title FROM cases').all() as {
+          ticket: string;
+          case_id: string;
+          title: string | null;
+        }[])
+      : []
+    ).map(c => [`${c.ticket}|${c.case_id}`.toLowerCase(), c.title]),
+  );
   return [...byTicket.entries()]
     .map(([ticket, items]) => ({
       ticket,
@@ -620,6 +651,9 @@ export function evidence(links: Links = FILES) {
       items: items.map(r => ({
         id: r.id,
         case: r.case_id,
+        caseTitle: r.case_id
+          ? (titleOf.get(`${r.ticket}|${r.case_id}`.toLowerCase()) ?? null)
+          : null,
         caption: r.caption,
         runId: r.run_id,
         step: r.step_seq,

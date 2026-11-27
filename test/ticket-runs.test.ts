@@ -75,6 +75,27 @@ store()
 run('20260101000006-ln1', { ticket: 'LN-1', batch: 'batch-ln-1', lane: 1 }, 'FAIL');
 run('20260101000007-ln2', { ticket: 'LN-1', batch: 'batch-ln-1', lane: 2 }, 'PASS');
 
+// A step recorded with its tool's title, and a case with a title, in run ttl of AB-2.
+const titled = new Recorder('20260101000008-ttl', 'local', 'ttl', { ticket: 'AB-2' }, builds);
+titled.step({
+  tool: 'booking_create',
+  title: 'Create a booking',
+  args: {},
+  ok: true,
+  durationMs: 1,
+});
+store()
+  .prepare("INSERT INTO cases (ticket, case_id, title, updated_at) VALUES ('AB-2', 'C1', ?, ?)")
+  .run('A booking takes its place', '2026-01-01T00:00:00Z');
+store()
+  .prepare(
+    `
+      INSERT INTO case_results (run_id, ticket, case_id, result, run_number, judged_by, finished_at)
+      VALUES ('20260101000008-ttl', 'AB-2', 'C1', 'PASS', 1, 'checks', '2026-01-01T00:00:00Z')
+    `,
+  )
+  .run();
+
 type Ticket = {
   ticket: string | null;
   runs: number;
@@ -161,6 +182,21 @@ describe('runs by ticket', () => {
     const detail = await json<{ title: string | null }>('/api/tickets/AB-1');
     assert.equal(detail.title, 'Stock limit');
     assert.equal(titleWithoutTicket('AB-1', 'iOS crash on login'), 'iOS crash on login');
+  });
+
+  it("shows a step by its tool's title and a run's cases by their titles", async () => {
+    const detail = await json<{
+      steps: { tool: string; title: string | null }[];
+      cases: { caseId: string; title: string | null }[];
+    }>('/api/runs/20260101000008-ttl');
+    assert.deepEqual(
+      detail.steps.map(s => [s.tool, s.title]),
+      [['booking_create', 'Create a booking']],
+    );
+    assert.deepEqual(
+      detail.cases.map(c => [c.caseId, c.title]),
+      [['C1', 'A booking takes its place']],
+    );
   });
 
   it('no longer serves topics', async () => {

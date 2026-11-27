@@ -40,12 +40,12 @@ export function evidenceView(tickets: EvidenceTicket[]) {
                           ${
                             e.case
                               ? html`<a href=${caseHref(t.ticket, e.case)}
-                                  ><sl-tag size="small">${e.case}</sl-tag></a
-                                > `
+                                    >${e.caseTitle ?? `Case ${e.case}`}</a
+                                  >: `
                               : nothing
                           }${e.caption}
                           <div class="muted">
-                            <a href=${runHref(e.runId)}>step ${e.step}</a> ${e.tool ?? ''} ·
+                            <a href=${runHref(e.runId)}>step ${e.step}</a> ·
                             ${
                               e.postedUrl
                                 ? html`<a href=${e.postedUrl} rel="noreferrer" target="_blank"

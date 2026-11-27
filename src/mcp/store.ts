@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS steps (
   run_id TEXT NOT NULL, seq INTEGER NOT NULL, tool TEXT NOT NULL, args_json TEXT,
   ok INTEGER NOT NULL, error_code TEXT, page_kind TEXT, url TEXT, duration_ms INTEGER,
-  observation_json TEXT,
+  observation_json TEXT, title TEXT,
   PRIMARY KEY (run_id, seq)
 );
 CREATE TABLE IF NOT EXISTS artifacts (
@@ -101,7 +101,7 @@ ${EVIDENCE_SCHEMA}
 `;
 
 /** Bumped with every migration below; PRAGMA user_version records how far a store has come. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const columns = (d: DatabaseSync, table: string) =>
   (d.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(c => c.name);
@@ -189,6 +189,9 @@ function migrate(d: DatabaseSync, from: number) {
       if (title) add.run(t.ticket, title, t.at);
     }
   }
+  // v5: a step keeps the title of the tool it called, so the viewer can say what it did.
+  if (from < 5 && !columns(d, 'steps').includes('title'))
+    d.exec('ALTER TABLE steps ADD COLUMN title TEXT');
 }
 
 /**

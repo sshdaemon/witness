@@ -1,46 +1,63 @@
 import { html, nothing } from 'lit';
 import { api, type RunRow, type Ticket } from '../api.js';
-import { ago, plural } from '../format.js';
-import { ticketHref } from '../links.js';
+import { ago, fmtTime, plural } from '../format.js';
+import { go, ticketHref } from '../links.js';
 import { crumbs, empty } from '../parts/layout.js';
 import { runsTable } from '../parts/runs.js';
 import { barOf, countsOf, verdict } from '../parts/verdict.js';
 
 const PAGE_SIZE = 15;
 
-const ticketRow = (t: Ticket & { ticket: string }) =>
-  html`<li>
-    <a class="ticket-row" href=${ticketHref(t.ticket)}>
-      <span class="tk"
-        ><span class="id">${t.ticket}</span>${
-          t.title ? html`<span class="title">${t.title}</span>` : nothing
-        }</span
-      >
-      <span class="cases"
-        >${
-          t.cases > 0
-            ? html`${barOf(t.counts)}${countsOf(t.counts)}`
-            : html`<span class="muted">no cases</span>`
-        }</span
-      >
-      <span class="last"><span class="muted">last run</span> ${verdict(t.verdict)}</span>
-      <span class="when muted"
-        >${t.cases > 0 ? `${plural(t.cases, 'case')} · ` : ''}${plural(t.runs, 'run')} ·
-        ${ago(t.latest)}</span
-      >
-      <sl-icon name="chevron-right" class="go" aria-hidden="true"></sl-icon>
-    </a>
-  </li>`;
+type Named = Ticket & { ticket: string };
+const named = (t: Ticket): t is Named => t.ticket !== null;
 
-const named = (t: Ticket): t is Ticket & { ticket: string } => t.ticket !== null;
+/** Tickets as a table: the title first, then how its cases stand and how its last run went. */
+const ticketsTable = (list: Named[]) =>
+  html`<div class="table-wrap">
+    <table class="tickets-table">
+      <thead>
+        <tr>
+          <th>Ticket</th>
+          <th>Use cases</th>
+          <th>Last run</th>
+          <th class="num">Runs</th>
+          <th class="num">Tested</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(t => {
+          const href = ticketHref(t.ticket);
+          return html`<tr
+            class="link"
+            tabindex="0"
+            @click=${() => go(href)}
+            @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && go(href)}
+          >
+            <td class="tk">
+              <span class="title">${t.title ?? t.ticket}</span>
+              ${t.title ? html`<span class="id">${t.ticket}</span>` : nothing}
+            </td>
+            <td class="cases">
+              ${
+                t.cases > 0
+                  ? html`${barOf(t.counts)}${countsOf(t.counts)}`
+                  : html`<span class="muted">none</span>`
+              }
+            </td>
+            <td>${verdict(t.verdict)}</td>
+            <td class="num">${t.runs}</td>
+            <td class="num" title=${fmtTime(t.latest)}>${ago(t.latest)}</td>
+          </tr>`;
+        })}
+      </tbody>
+    </table>
+  </div>`;
 
 export const loadTickets = () => api.tickets();
 
 /** Every ticket, the most recently tested first, a page at a time. */
 export function ticketsView(tickets: Ticket[], page: number) {
   const tested = tickets.filter(named).filter(t => !t.tool);
-  const tools = tickets.filter(named).filter(t => t.tool);
-  const noTicket = tickets.find(t => t.ticket === null);
   const pages = Math.max(1, Math.ceil(tested.length / PAGE_SIZE));
   const p = Math.min(Math.max(page, 1), pages);
   const shown = tested.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
@@ -67,33 +84,23 @@ export function ticketsView(tickets: Ticket[], page: number) {
     </div>
     ${
       shown.length > 0
-        ? html`<ul class="tickets">
-              ${shown.map(ticketRow)}
-            </ul>
-            ${pager}`
+        ? html`${ticketsTable(shown)}${pager}`
         : empty("Nothing tested yet. A session starts a ticket's run with session_start.")
     }
-    ${
-      tools.length > 0
-        ? html`<sl-details class="more" summary="Tool checks (${tools.length})">
-            <ul class="tickets">
-              ${tools.map(ticketRow)}
-            </ul>
-          </sl-details>`
-        : nothing
-    }
-    ${
-      noTicket
-        ? html`<a class="ticket-row quiet" href="#/no-ticket">
-            <span class="tk">No ticket</span>
-            <span class="muted"
-              >${plural(noTicket.runs, 'run')} from before every run had a ticket ·
-              ${ago(noTicket.latest)}</span
-            >
-            <sl-icon name="chevron-right" class="go" aria-hidden="true"></sl-icon>
-          </a>`
-        : nothing
-    }
+  `;
+}
+
+/** Tickets whose runs only exercised a tool, such as TOOL-search. */
+export function toolsView(tickets: Ticket[]) {
+  const tools = tickets.filter(named).filter(t => t.tool);
+  return html`
+    ${crumbs([
+      ['Tickets', '#/'],
+      ['Tool checks', null],
+    ])}
+    <div class="head"><h1>Tool checks</h1></div>
+    <p class="sub">Runs that only exercised a tool while it was written.</p>
+    ${tools.length > 0 ? ticketsTable(tools) : empty('No tool checks.')}
   `;
 }
 

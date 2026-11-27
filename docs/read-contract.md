@@ -21,7 +21,7 @@ Run it in the app's checkout as `npm run -s read -- …` (the app's script runs 
 | `ticket <ticket>`                                       | one ticket's `title`, cases and runs                                                                                                                                                                                                 |
 | `case <ticket> <caseId>`                                | one case's results in every run, its screenshots and the evidence picked for it                                                                                                                                                      |
 | `ledger <ticket>`                                       | `{ results, runs }`: the rows a ticket's QA ledger is built from                                                                                                                                                                     |
-| `evidence`                                              | picked screenshots by ticket                                                                                                                                                                                                         |
+| `evidence`                                              | picked screenshots by ticket, each with its `case` and `caseTitle`                                                                                                                                                                   |
 
 Tickets and case ids match whatever their case; `--ticket ""` lists the runs with no ticket. `ledger` answers a ticket it has nothing for with empty lists (exit 0).
 
@@ -29,13 +29,13 @@ Tickets and case ids match whatever their case; `--ticket ""` lists the runs wit
 
 `run` is the run's own record (`id`, `ticket`, `run_number`, `label`, `env`, `branch`, `kind`, `verdict`, `summary`, `first_failure_step`, `started_at`, `finished_at`, `app_versions`, `batch_id`, `lane`), and:
 
-- `cases`: one per case the run recorded, in step order: `ticket`, `caseId`, `result` (`PASS`, `FAIL`, `BLOCKED` or `NOT_RUN`), `actual`, `note`, `steps` (`{ from, to }`, the step numbers the case covered, or null for a case that never began), `judgedBy` (`checks` or `session`), `checksResult`, `checks` (each `{ seq, path, check, want, got, ok }`), `runNumber`, `finishedAt`.
+- `cases`: one per case the run recorded, in step order: `ticket`, `caseId`, `title` (from the case's definition, or null), `result` (`PASS`, `FAIL`, `BLOCKED` or `NOT_RUN`), `actual`, `note`, `steps` (`{ from, to }`, the step numbers the case covered, or null for a case that never began), `judgedBy` (`checks` or `session`), `checksResult`, `checks` (each `{ seq, path, check, want, got, ok }`), `runNumber`, `finishedAt`.
 - `artifacts`: `stepSeq`, `kind` (`screenshot`, `trace`, …), `name`, `bytes`, `url` (a screenshot's path), `openWith` (how to open it; traces are never printed, only the command that opens them).
 - `lanes`: the other runs of the same batch, `{ id, lane, verdict }`.
 
 ### A step
 
-`seq`, `tool`, `args`, `ok`, `errorCode`, `pageKind`, `url`, `durationMs`, `observation` (the tool's answer: `ok`, `data`, `notices`, or `code`, `message`, `hint`; an answer longer than 4000 characters is kept as `{ truncated: true, head }`, `head` being the start of its JSON text), `screenshot` (the step's last screenshot) and `screenshots` (every one, in the order taken). Screenshots are absolute paths.
+`seq`, `tool`, `title` (the tool's own title, such as "Create a booking"; null for steps recorded before titles were kept), `args`, `ok`, `errorCode`, `pageKind`, `url`, `durationMs`, `observation` (the tool's answer: `ok`, `data`, `notices`, or `code`, `message`, `hint`; an answer longer than 4000 characters is kept as `{ truncated: true, head }`, `head` being the start of its JSON text), `screenshot` (the step's last screenshot) and `screenshots` (every one, in the order taken). Screenshots are absolute paths.
 
 ## The run folder
 

@@ -239,6 +239,8 @@ export class Recorder {
 
   step(s: {
     tool: string;
+    /** The tool's own title, such as "Create a booking". */
+    title?: string;
     args: unknown;
     ok: boolean;
     errorCode?: string;
@@ -256,8 +258,8 @@ export class Recorder {
         `
           INSERT INTO steps (
             run_id, seq, tool, args_json, ok, error_code, page_kind, url, duration_ms,
-            observation_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            observation_json, title
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
@@ -271,6 +273,7 @@ export class Recorder {
         s.url ?? null,
         s.durationMs,
         observation,
+        s.title ?? null,
       );
     appendFileSync(
       this.stepLogPath,

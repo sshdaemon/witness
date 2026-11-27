@@ -1,10 +1,10 @@
 import { html, nothing } from 'lit';
 import { api, type RunDetail, type Step } from '../api.js';
-import { buildLabel, dur, fmtTime, plural, runMs, runName, shortArgs } from '../format.js';
-import { caseHref, runHref, ticketHref } from '../links.js';
+import { buildLabel, dur, fmtTime, plural, runMs, runName } from '../format.js';
+import { caseHref, go, runHref, ticketHref } from '../links.js';
 import { checkList, summaryLines } from '../parts/checks.js';
 import { crumbs, empty } from '../parts/layout.js';
-import { stepError, stepShots } from '../parts/steps.js';
+import { isMarker, stepItem } from '../parts/steps.js';
 import { resultCell, verdict } from '../parts/verdict.js';
 import { slidesOf, type Slide } from '../present.js';
 
@@ -17,7 +17,7 @@ export function runView(d: RunDetail, act: RunActions) {
   const r = d.run;
   const ms = runMs(r);
   const failed = d.steps.filter(s => !s.ok).length;
-  const slides = slidesOf(d.steps);
+  const slides = slidesOf(d.steps.filter(s => !isMarker(s)));
   const title = r.run_number ? `Run ${runName(r)}` : r.label || 'Run';
   const open = (seq: number, frame: number) =>
     act.present(
@@ -36,49 +36,18 @@ export function runView(d: RunDetail, act: RunActions) {
     const opens = startsAt.get(s.seq);
     // Steps after a case and before the next one (shared setup, cleanup) belong to no case.
     const leaves = !opens && d.cases.some(c => c.steps?.to === s.seq - 1) && !inCase(s.seq);
-    const obs = s.observation ?? {};
     return html`${
-        opens
-          ? html`<li class="case-head" id="case-${opens.caseId}">
-              <a href=${caseHref(opens.ticket, opens.caseId, r.id)}>${opens.caseId}</a>
-              ${verdict(opens.result)}
-              <span class="muted">steps ${opens.steps!.from}–${opens.steps!.to}</span>
-            </li>`
-          : nothing
-      }
-      ${leaves ? html`<li class="case-head muted">Outside cases</li>` : nothing}
-      <li class="step ${s.ok ? '' : 'bad'}">
-        <div class="row">
-          <span class="seq">${s.seq}</span>
-          <span class="tool">${s.tool}</span>
-          <span class="args" title=${shortArgs(s.args)}>${shortArgs(s.args)}</span>
-          <span class="spacer"></span>
-          ${s.pageKind ? html`<sl-tag size="small">${s.pageKind}</sl-tag>` : nothing}
-          <span class="muted mono">${dur(s.durationMs)}</span>
-          ${s.ok ? nothing : verdict('FAIL')}
-        </div>
-        ${stepError(s)}
-        ${
-          stepShots(s).length > 0
-            ? html`<div class="thumbs">
-                ${stepShots(s).map(
-                  (src, i) =>
-                    html`<img
-                      class="thumb"
-                      loading="lazy"
-                      src=${src}
-                      alt="Screenshot ${i + 1} after ${s.tool}"
-                      @click=${() => open(s.seq, i)}
-                    />`,
-                )}
-              </div>`
-            : nothing
-        }
-        <details>
-          <summary>Details</summary>
-          <pre>${JSON.stringify({ args: s.args, result: obs.data ?? obs }, null, 2)}</pre>
-        </details>
-      </li>`;
+      opens
+        ? html`<li class="case-head" id="case-${opens.caseId}">
+            <a href=${caseHref(opens.ticket, opens.caseId, r.id)}
+              >${opens.title ?? `Case ${opens.caseId}`}</a
+            >
+            ${verdict(opens.result)}
+          </li>`
+        : nothing
+    }
+    ${leaves ? html`<li class="case-head muted">Outside cases</li>` : nothing}
+    ${isMarker(s) ? nothing : stepItem(s, open)}`;
   };
 
   return html`
@@ -134,25 +103,23 @@ export function runView(d: RunDetail, act: RunActions) {
               <table>
                 <thead>
                   <tr>
-                    <th>Case</th>
+                    <th>Use case</th>
                     <th>Result</th>
-                    <th>Steps</th>
                     <th>What it showed</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${d.cases.map(
                     c =>
-                      html`<tr>
-                        <td><a href=${caseHref(c.ticket, c.caseId, r.id)}>${c.caseId}</a></td>
+                      html`<tr
+                        class="link"
+                        tabindex="0"
+                        @click=${() => go(caseHref(c.ticket, c.caseId, r.id))}
+                        @keydown=${(e: KeyboardEvent) =>
+                          e.key === 'Enter' && go(caseHref(c.ticket, c.caseId, r.id))}
+                      >
+                        <td>${c.title ?? `Case ${c.caseId}`}</td>
                         <td>${resultCell(c)}</td>
-                        <td class="num">
-                          ${
-                            c.steps
-                              ? `${c.steps.from}–${c.steps.to}`
-                              : html`<span class="muted">–</span>`
-                          }
-                        </td>
                         <td>
                           ${c.actual ?? ''}
                           ${c.note ? html`<div class="muted">${c.note}</div>` : nothing}
