@@ -159,6 +159,10 @@ Use dedicated test accounts, never production. Saved sign-ins, browser profiles,
 
 [docs/method/testing.md](docs/method/testing.md) is how an agent tests a feature with an app's tools, and [docs/method/tools.md](docs/method/tools.md) how it adds a tool. An app's own skills point at them and add what is specific to the app.
 
+## With a QA loop
+
+The [fresh-eyes](https://github.com/sshdaemon/workbench) QA loop drives an app built on witness for a ticket end to end: it defines the cases into a case file, has a fresh-context validator challenge them, runs them with `npm run steps`, has the validator check every verdict against the steps and screenshots, and hands over the viewer link. Its [profile recipes](https://github.com/sshdaemon/workbench/blob/main/plugins/fresh-eyes/PROFILE.md#recipes) have what the project's profile says about the app.
+
 ## Development
 
 ```bash
